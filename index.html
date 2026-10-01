@@ -110,7 +110,7 @@
     <link rel="manifest" href="site.webmanifest">
     <link rel="author" href="humans.txt">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='50' dominant-baseline='central' text-anchor='middle' font-size='75'>🌍</text></svg>">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
     <nav id="topNav">
@@ -132,7 +132,7 @@
             <li>Interactive plate editing — select multiple plates for batch land/ocean toggling with visual preview before rebuild</li>
             <li>Heightmap import — bring your own equirectangular B&amp;W heightmap (Earth, Mars, hand-drawn) and run full climate simulation on it</li>
             <li>Multiple visualization modes: terrain, satellite biome, climate, and heightmap</li>
-            <li>32 detailed inspection layers for geology, atmosphere, ocean, climate, and hydrology</li>
+            <li>Dozens of inspection layers for geology, metal potential, atmosphere, ocean, climate, and hydrology</li>
             <li>All-layer map atlases, 16-bit elevation and bathymetry, masks, and per-region CSV/JSON export</li>
             <li>Shareable planet codes — copy a code to share your exact planet with others</li>
         </ul>
@@ -312,6 +312,24 @@
                             <option value="dynamicTopo">Dynamic Topography</option>
                             <option value="erosionDelta">Erosion Delta</option>
                         </optgroup>
+                        <optgroup label="Regional Geology">
+                            <option value="surfaceLithology">Surface Lithology</option>
+                            <option value="basementAge">Basement Age</option>
+                            <option value="surfaceAge">Surface Unit Age</option>
+                            <option value="intrusiveBodies">Intrusive Bodies</option>
+                            <option value="metamorphicGrade">Metamorphic Grade</option>
+                            <option value="sedimentThickness">Sediment Thickness</option>
+                        </optgroup>
+                        <optgroup label="Metal Potential">
+                            <option value="metalProvince">Dominant Metal Province</option>
+                            <option value="metalArc">Arc / Felsic Hydrothermal</option>
+                            <option value="metalOrogenic">Orogenic Veins</option>
+                            <option value="metalVms">VMS / Base Metals</option>
+                            <option value="metalMafic">Mafic Magmatic</option>
+                            <option value="metalCraton">Craton-Related</option>
+                            <option value="metalSedimentary">Sedimentary / Residual</option>
+                            <option value="metalPlacer">Placer / Alluvial</option>
+                        </optgroup>
                         <optgroup label="Plate Physics">
                             <option value="continentalDrag">Continental Drag</option>
                             <option value="sizeVelocity">Size-Velocity</option>
@@ -414,7 +432,7 @@
             <div class="tutorial-step" data-step="4">
                 <h3>Save &amp; Share</h3>
                 <p>Every planet gets a unique <strong>planet code</strong> shown below the Build button &mdash; including any plates you've edited. <strong>Copy</strong> it to share with others, or <strong>paste</strong> a code and click <strong>Load</strong> to recreate someone else's world. You can also share the URL directly.</p>
-                <p>Use <strong>Export Map</strong> to download one map, a worldbuilding atlas, every available Inspect layer, or per-region CSV data. Exports include elevation and bathymetry, climate, seasonal flow accumulation, rivers, lake candidates, and inverse masks.</p>
+                <p>Use <strong>Export Map</strong> to download one map, a worldbuilding atlas, every available Inspect layer, or per-region CSV data. Exports include elevation and bathymetry, regional geology, metal potential, climate, seasonal flow accumulation, rivers, lake candidates, and inverse masks.</p>
             </div>
             <div class="tutorial-dots">
                 <span class="dot active" data-dot="0"></span>

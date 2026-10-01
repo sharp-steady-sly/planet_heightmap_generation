@@ -11,6 +11,7 @@ import { computePrecipitation } from './precipitation.js';
 import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
 import { computeHydrology } from './hydrology.js';
+import { computeRegionalGeology } from './geology.js';
 
 // Main thread still needs Delaunator for SphereMesh reconstruction
 setDelaunator(Delaunator);
@@ -99,6 +100,18 @@ function clearHydrologyFields(target) {
     if (target.debugLayers) {
         for (const key of HYDROLOGY_DEBUG_KEYS) target.debugLayers[key] = null;
     }
+}
+
+const GEOLOGY_FIELD_KEYS = [
+    'r_surface_lithology', 'r_basement_age_ma', 'r_surface_age_ma',
+    'r_intrusive_strength', 'r_intrusive_type', 'r_metamorphic_grade',
+    'r_sediment_thickness_km', 'r_metal_province', 'r_metal_arc',
+    'r_metal_orogenic', 'r_metal_vms', 'r_metal_mafic', 'r_metal_craton',
+    'r_metal_sedimentary', 'r_metal_placer',
+];
+
+function assignGeologyFields(target, source) {
+    for (const key of GEOLOGY_FIELD_KEYS) target[key] = source[key] ?? null;
 }
 
 // Reconstruct SphereMesh from transferred data
@@ -265,6 +278,7 @@ if (worker) {
                     terrainMetrics: msg.terrainMetrics || null
                 };
                 assignHydrologyFields(state.curData, msg);
+                assignGeologyFields(state.curData, msg);
                 console.log(
                     `[World Orogen] Hydrology: ${state.curData.r_flow_receiver?.length || 0} routed regions, ` +
                     `${state.curData.lakeCount || 0} lake candidates, ` +
@@ -460,6 +474,10 @@ if (worker) {
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
                 assignHydrologyFields(d, msg);
+                assignGeologyFields(d, msg);
+                if (msg.geologyDebugLayers) {
+                    Object.assign(d.debugLayers, msg.geologyDebugLayers);
+                }
                 if (msg.windDebugLayers) {
                     Object.assign(d.debugLayers, msg.windDebugLayers);
                 }
@@ -585,6 +603,7 @@ if (worker) {
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
                 assignHydrologyFields(d, msg);
+                assignGeologyFields(d, msg);
                 d.debugLayers = msg.debugLayers;
                 // Fallback: compute precip/temp on main thread if climate was
                 // requested but data is missing (e.g. partial worker result)
@@ -691,6 +710,7 @@ if (worker) {
                     d.r_temperature_summer = msg.r_temperature_summer;
                     d.r_temperature_winter = msg.r_temperature_winter;
                     assignHydrologyFields(d, msg);
+                    assignGeologyFields(d, msg);
                     // Merge climate debug layers
                     if (msg.climateDebugLayers && d.debugLayers) {
                         Object.assign(d.debugLayers, msg.climateDebugLayers);
@@ -873,6 +893,16 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 );
                 Object.assign(debugLayers, ctx.hydrologyResult.debugLayers);
             }
+            ctx.geologyResult = computeRegionalGeology(ctx.mesh, ctx.r_xyz, r_elevation, {
+                seed: ctx.seed,
+                debugLayers,
+                r_stress: ctx.r_stress,
+                r_precip_summer: ctx.precipResult?.r_precip_summer,
+                r_precip_winter: ctx.precipResult?.r_precip_winter,
+                r_flow_receiver: ctx.hydrologyResult?.r_flow_receiver,
+                r_river_strength: ctx.hydrologyResult?.r_river_strength,
+            });
+            if (ctx.geologyResult?.debugLayers) Object.assign(debugLayers, ctx.geologyResult.debugLayers);
             const t_elevation = new Float32Array(ctx.mesh.numTriangles);
             for (let t = 0; t < ctx.mesh.numTriangles; t++) {
                 const s0 = 3 * t;
@@ -912,6 +942,7 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 r_temperature_winter: ctx.tempResult ? ctx.tempResult.r_temperature_winter : null
             };
             assignHydrologyFields(state.curData, ctx.hydrologyResult || {});
+            assignGeologyFields(state.curData, ctx.geologyResult || {});
             state.climateComputed = !skipClimate;
             buildMesh();
             progress(100, 'Done');

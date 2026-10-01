@@ -15,6 +15,7 @@ import { computePrecipitation } from './precipitation.js';
 import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
 import { computeHydrology } from './hydrology.js';
+import { computeRegionalGeology } from './geology.js';
 import { computeTerrainMetrics } from './terrain-metrics.js';
 import { applyPlatePhysics, expandPlatePhysicsDebug } from './plate-physics.js';
 import { SUPER_PLATE_PHYSICS_MULT, DETAIL_NOISE_DAMPEN_STRENGTH } from './terrain-config.js';
@@ -215,6 +216,24 @@ function addHydrologyDebugLayers(debugLayers, hydrologyResult) {
     }
 }
 
+function buildGeologyFields(geologyResult) {
+    if (!geologyResult) return {};
+    const { debugLayers, ...fields } = geologyResult;
+    return fields;
+}
+
+function computeGeology(mesh, r_xyz, r_elevation, seed, debugLayers, r_stress, precipResult, hydrologyResult) {
+    return computeRegionalGeology(mesh, r_xyz, r_elevation, {
+        seed,
+        debugLayers,
+        r_stress,
+        r_precip_summer: precipResult?.r_precip_summer,
+        r_precip_winter: precipResult?.r_precip_winter,
+        r_flow_receiver: hydrologyResult?.r_flow_receiver,
+        r_river_strength: hydrologyResult?.r_river_strength,
+    });
+}
+
 function handleGenerate(data) {
     const { N, P, jitter, nMag, numContinents, smoothing, hydraulicErosion, thermalErosion, ridgeSharpening, glacialErosion, terrainWarp, continentSizeVariety = 0, temperatureOffset = 0, precipitationOffset = 0, landCoverage = 0.3, seed: overrideSeed, toggledIndices, skipClimate } = data;
     const spread = 5;
@@ -355,6 +374,10 @@ function handleGenerate(data) {
             debugLayers.mantleFlow = ppd.dl_mantleFlow;
         }
 
+        // Keep tectonic inputs separate from derived climate/geology layers so
+        // reapply and on-demand climate runs can rebuild geology deterministically.
+        const tectonicDebugLayers = { ...debugLayers };
+
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
         let hydrologyResult = null;
 
@@ -409,7 +432,16 @@ function handleGenerate(data) {
             timing.push({ stage: 'Hydrology (drainage + accumulation)', ms: performance.now() - t0 });
         }
 
-        progress(skipClimate ? 75 : 90, 'Computing triangle elevations\u2026');
+        progress(skipClimate ? 72 : 91, 'Inferring regional geology\u2026');
+        t0 = performance.now();
+        const geologyResult = computeGeology(
+            mesh, r_xyz, r_elevation, seed, tectonicDebugLayers, r_stress,
+            precipResult, hydrologyResult,
+        );
+        if (geologyResult?.debugLayers) Object.assign(debugLayers, geologyResult.debugLayers);
+        timing.push({ stage: 'Regional geology + metal favorability', ms: performance.now() - t0 });
+
+        progress(skipClimate ? 78 : 94, 'Computing triangle elevations\u2026');
         t0 = performance.now();
         const t_elevation = computeTriangleElevations(mesh, r_elevation);
         timing.push({ stage: 'Triangle elevations', ms: performance.now() - t0 });
@@ -431,6 +463,7 @@ function handleGenerate(data) {
             r_stress: new Float32Array(r_stress),
             temperatureOffset, precipitationOffset, landCoverage,
             cachedWind: windResult, cachedOcean: oceanResult,
+            tectonicDebugLayers,
             // Retain detail-noise dampen + orogenic fields so reapply (which
             // reuses prePostElev) shapes the noise the same way as the initial
             // generate over craton/basin and orogenic regions.
@@ -483,6 +516,7 @@ function handleGenerate(data) {
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
+            ...buildGeologyFields(geologyResult),
             skipClimate: !!skipClimate,
             seed, nMag,
             debugLayers,
@@ -533,7 +567,7 @@ function handleReapply(data) {
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
         let hydrologyResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0, tGeology = 0;
 
         if (!skipClimate) {
             progress(60, 'Simulating wind patterns\u2026');
@@ -571,7 +605,23 @@ function handleReapply(data) {
             W.cachedOcean = null;
         }
 
-        progress(skipClimate ? 70 : 90, 'Computing triangle elevations\u2026');
+        progress(skipClimate ? 66 : 91, 'Inferring regional geology\u2026');
+        t0 = performance.now();
+        const tectonicDebugLayers = {
+            ...(W.tectonicDebugLayers || {}),
+            erosionDelta: dl_erosionDelta,
+        };
+        const geologyResult = computeGeology(
+            W.mesh, W.r_xyz, r_elevation, W.seed, tectonicDebugLayers, W.r_stress,
+            precipResult, hydrologyResult,
+        );
+        tGeology = performance.now() - t0;
+        W.tectonicDebugLayers = {
+            ...tectonicDebugLayers,
+            erosionDelta: new Float32Array(dl_erosionDelta),
+        };
+
+        progress(skipClimate ? 74 : 94, 'Computing triangle elevations\u2026');
         t0 = performance.now();
         const t_elevation = computeTriangleElevations(W.mesh, r_elevation);
         const tTriElev = performance.now() - t0;
@@ -586,6 +636,8 @@ function handleReapply(data) {
             erosionDelta: dl_erosionDelta,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
+            ...buildGeologyFields(geologyResult),
+            geologyDebugLayers: geologyResult?.debugLayers || null,
             windDebugLayers: windResult ? {
                 pressureSummer: windResult.r_pressure_summer,
                 pressureWinter: windResult.r_pressure_winter,
@@ -608,6 +660,7 @@ function handleReapply(data) {
                 precipitation: tPrecip,
                 temperature: tTemp,
                 hydrology: tHydrology,
+                geology: tGeology,
                 triangleElevations: tTriElev,
                 workerTotal: tWorkerTotal
             },
@@ -663,13 +716,14 @@ function handleEditRecompute(data) {
         const { dl_erosionDelta, postTiming } = runPostProcessing(mesh, r_xyz, r_elevation, data, W.neighborDist, W.seed, debugLayers.hotspot, r_dampen, r_orogenic);
         const tPost = performance.now() - t0;
         debugLayers.erosionDelta = dl_erosionDelta;
+        const tectonicDebugLayers = { ...debugLayers };
 
         // Update retained final elevation for deferred climate
         W.r_elevation_final = new Float32Array(r_elevation);
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
         let hydrologyResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0, tGeology = 0;
 
         if (!skipClimate) {
             progress(65, 'Simulating wind patterns\u2026');
@@ -722,7 +776,16 @@ function handleEditRecompute(data) {
             W.cachedOcean = null;
         }
 
-        progress(skipClimate ? 75 : 90, 'Computing triangle elevations\u2026');
+        progress(skipClimate ? 72 : 91, 'Inferring regional geology\u2026');
+        t0 = performance.now();
+        const geologyResult = computeGeology(
+            mesh, r_xyz, r_elevation, seed, tectonicDebugLayers, r_stress,
+            precipResult, hydrologyResult,
+        );
+        tGeology = performance.now() - t0;
+        if (geologyResult?.debugLayers) Object.assign(debugLayers, geologyResult.debugLayers);
+
+        progress(skipClimate ? 78 : 94, 'Computing triangle elevations\u2026');
         t0 = performance.now();
         const t_elevation = computeTriangleElevations(mesh, r_elevation);
         const tTriElev = performance.now() - t0;
@@ -734,6 +797,7 @@ function handleEditRecompute(data) {
         W.coastline_r = new Set(coastline_r);
         W.ocean_r = new Set(ocean_r);
         W.r_stress = new Float32Array(r_stress);
+        W.tectonicDebugLayers = tectonicDebugLayers;
         const tRetain = performance.now() - t0;
 
         const tWorkerTotal = performance.now() - tTotal0;
@@ -750,6 +814,7 @@ function handleEditRecompute(data) {
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
+            ...buildGeologyFields(geologyResult),
             debugLayers,
             _editTiming: {
                 elevation: tElev,
@@ -759,6 +824,7 @@ function handleEditRecompute(data) {
                 precipitation: tPrecip,
                 temperature: tTemp,
                 hydrology: tHydrology,
+                geology: tGeology,
                 triangleElevations: tTriElev,
                 retainState: tRetain,
                 workerTotal: tWorkerTotal
@@ -828,6 +894,14 @@ function handleComputeClimate(data) {
         );
         const tHydrology = performance.now() - t0;
 
+        progress(95, 'Refreshing regional geology\u2026');
+        t0 = performance.now();
+        const geologyResult = computeGeology(
+            mesh, r_xyz, r_elevation_final, W.seed, W.tectonicDebugLayers || {}, W.r_stress,
+            precipResult, hydrologyResult,
+        );
+        const tGeology = performance.now() - t0;
+
         const tWorkerTotal = performance.now() - tTotal0;
 
         const climateDebugLayers = {
@@ -844,9 +918,10 @@ function handleComputeClimate(data) {
             tempWinter: tempResult.r_temperature_winter,
             koppen,
             ...hydrologyResult.debugLayers,
+            ...(geologyResult?.debugLayers || {}),
         };
 
-        progress(95, 'Done');
+        progress(98, 'Done');
 
         self.postMessage({
             type: 'climateDone',
@@ -870,6 +945,7 @@ function handleComputeClimate(data) {
             r_temperature_summer: tempResult.r_temperature_summer,
             r_temperature_winter: tempResult.r_temperature_winter,
             ...buildHydrologyFields(hydrologyResult),
+            ...buildGeologyFields(geologyResult),
             climateDebugLayers,
             _climateTiming: {
                 wind: tWind,
@@ -878,6 +954,7 @@ function handleComputeClimate(data) {
                 temperature: tTemp,
                 koppen: tKoppen,
                 hydrology: tHydrology,
+                geology: tGeology,
                 workerTotal: tWorkerTotal
             }
         });

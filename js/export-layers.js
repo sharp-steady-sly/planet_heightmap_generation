@@ -60,6 +60,63 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         filename: 'plates', worldbuilding: true, inspect: false, unit: 'plate id',
         description: 'Generated or inferred tectonic plate assignments.',
     }),
+    layer('surfaceLithology', 'Surface Lithology', 'Regional Geology', {
+        filename: 'surface-lithology', worldbuilding: true, importSupported: false, unit: 'class',
+        description: 'Broad inferred surface rock and sediment units.',
+    }),
+    layer('basementAge', 'Basement Age', 'Regional Geology', {
+        filename: 'basement-age', worldbuilding: true, importSupported: false, unit: 'Ma',
+        description: 'Approximate crustal basement age, including oceanic spreading age.',
+    }),
+    layer('surfaceAge', 'Surface Unit Age', 'Regional Geology', {
+        filename: 'surface-unit-age', worldbuilding: true, importSupported: false, unit: 'Ma',
+        description: 'Approximate age of the mapped surface unit.',
+    }),
+    layer('intrusiveBodies', 'Intrusive Bodies', 'Regional Geology', {
+        filename: 'intrusive-bodies', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Inferred intrusive systems colored by broad magma affinity.',
+    }),
+    layer('metamorphicGrade', 'Metamorphic Grade', 'Regional Geology', {
+        filename: 'metamorphic-grade', worldbuilding: true, importSupported: false, unit: 'relative 0-1',
+        description: 'Regional metamorphic intensity inferred from stress, burial, and intrusion.',
+    }),
+    layer('sedimentThickness', 'Sediment Thickness', 'Regional Geology', {
+        filename: 'sediment-thickness', worldbuilding: true, importSupported: false, unit: 'km',
+        description: 'Approximate regional sediment thickness in basins and ocean crust.',
+    }),
+
+    layer('metalProvince', 'Dominant Metal Province', 'Metal Potential', {
+        filename: 'metal-provinces', worldbuilding: true, importSupported: false, unit: 'class',
+        description: 'Strongest inferred metallogenic setting above the display threshold.',
+    }),
+    layer('metalArc', 'Arc / Felsic Hydrothermal Potential', 'Metal Potential', {
+        filename: 'metal-arc-hydrothermal', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Regional copper, gold, silver, molybdenum, and tin favorability around active arcs and felsic intrusions.',
+    }),
+    layer('metalOrogenic', 'Orogenic Vein Potential', 'Metal Potential', {
+        filename: 'metal-orogenic-gold', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Regional gold, silver, tungsten, and antimony favorability in stressed and metamorphosed fold belts.',
+    }),
+    layer('metalVms', 'VMS / Base Metal Potential', 'Metal Potential', {
+        filename: 'metal-vms-base-metals', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Regional copper, zinc, lead, silver, and gold favorability in ridges, back-arcs, and volcanic belts.',
+    }),
+    layer('metalMafic', 'Mafic Magmatic Potential', 'Metal Potential', {
+        filename: 'metal-mafic-magmatic', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Regional iron, nickel, cobalt, chromium, vanadium, and platinum favorability in mafic and hotspot systems.',
+    }),
+    layer('metalCraton', 'Craton-Related Potential', 'Metal Potential', {
+        filename: 'metal-craton-related', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Ancient-craton favorability for iron, gold, uranium, and diamond-bearing settings.',
+    }),
+    layer('metalSedimentary', 'Sedimentary / Residual Potential', 'Metal Potential', {
+        filename: 'metal-sedimentary', worldbuilding: true, importSupported: false, unit: 'favorability 0-1',
+        description: 'Regional iron, manganese, aluminum, copper, lead, zinc, and uranium favorability in basins and residual deposits.',
+    }),
+    layer('metalPlacer', 'Placer Metal Potential', 'Metal Potential', {
+        filename: 'metal-placer', worldbuilding: true, importSupported: false, requiresClimate: true, unit: 'favorability 0-1',
+        description: 'Gold, tin, platinum, and titanium concentration potential routed downstream from eroding source provinces.',
+    }),
 
     layer('pressureSummer', 'Pressure (Summer)', 'Atmosphere', {
         requiresClimate: true, worldbuilding: true, unit: 'hPa deviation from 1013',

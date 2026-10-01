@@ -7,6 +7,7 @@ import { elevationToColor, elevToHeightKm, biomeColor } from './color-map.js';
 import { makeRng } from './rng.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { ELEVATION_ENCODING, getExportLayerDefinition, exportLayerHasData } from './export-layers.js';
+import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 
 // Clipping planes for map wrap — keep everything within x ∈ [-2, 2]
 renderer.localClippingEnabled = true;
@@ -258,6 +259,71 @@ function hydrologyColor(layer, value, elevation, riverStrength = 0) {
     return [0.52 - s * 0.47, 0.88 - s * 0.62, 0.84 + s * 0.14];
 }
 
+const REGIONAL_GEOLOGY_LAYERS = new Set([
+    'surfaceLithology', 'basementAge', 'surfaceAge', 'intrusiveBodies',
+    'metamorphicGrade', 'sedimentThickness',
+]);
+
+const METAL_POTENTIAL_LAYERS = new Set([
+    'metalProvince', 'metalArc', 'metalOrogenic', 'metalVms', 'metalMafic',
+    'metalCraton', 'metalSedimentary', 'metalPlacer',
+]);
+
+const METAL_ENDPOINTS = Object.freeze({
+    metalArc: [0.91, 0.16, 0.08],
+    metalOrogenic: [0.98, 0.72, 0.06],
+    metalVms: [0.04, 0.63, 0.88],
+    metalMafic: [0.10, 0.56, 0.28],
+    metalCraton: [0.64, 0.25, 0.76],
+    metalSedimentary: [0.56, 0.36, 0.16],
+    metalPlacer: [0.98, 0.48, 0.02],
+});
+
+function blendColor(a, b, t) {
+    const s = Math.max(0, Math.min(1, t));
+    return [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, a[2] + (b[2] - a[2]) * s];
+}
+
+function ageColor(value, maxAge) {
+    const t = Math.max(0, Math.min(1, Math.log1p(Math.max(0, value)) / Math.log1p(maxAge)));
+    if (t < 0.35) return blendColor([0.95, 0.91, 0.72], [0.84, 0.46, 0.37], t / 0.35);
+    if (t < 0.70) return blendColor([0.84, 0.46, 0.37], [0.43, 0.29, 0.48], (t - 0.35) / 0.35);
+    return blendColor([0.43, 0.29, 0.48], [0.11, 0.10, 0.24], (t - 0.70) / 0.30);
+}
+
+function geologyColor(layer, value, elevation, region, data) {
+    if (layer === 'surfaceLithology') {
+        return LITHOLOGY_CLASSES[value]?.color || [0.5, 0.5, 0.5];
+    }
+    if (layer === 'basementAge') return ageColor(value, 3800);
+    if (layer === 'surfaceAge') return ageColor(value, 3800);
+    if (layer === 'intrusiveBodies') {
+        const base = elevation > 0 ? [0.73, 0.72, 0.67] : [0.10, 0.18, 0.24];
+        const type = data.r_intrusive_type?.[region] || 0;
+        const endpoint = INTRUSIVE_TYPES[type]?.color || [0.90, 0.45, 0.48];
+        return blendColor(base, endpoint, Math.pow(Math.max(0, Math.min(1, value)), 0.72));
+    }
+    if (layer === 'metamorphicGrade') {
+        const t = Math.max(0, Math.min(1, value));
+        return t < 0.5
+            ? blendColor([0.84, 0.86, 0.84], [0.36, 0.62, 0.54], t * 2)
+            : blendColor([0.36, 0.62, 0.54], [0.23, 0.06, 0.33], (t - 0.5) * 2);
+    }
+    if (layer === 'sedimentThickness') {
+        const t = Math.max(0, Math.min(1, value / 8));
+        return blendColor([0.93, 0.90, 0.81], [0.34, 0.20, 0.12], Math.pow(t, 0.72));
+    }
+    if (layer === 'metalProvince') {
+        return METAL_PROVINCES[value]?.color || METAL_PROVINCES[0].color;
+    }
+
+    const background = elevation > 0 ? [0.77, 0.76, 0.71] : [0.08, 0.15, 0.21];
+    const endpoint = METAL_ENDPOINTS[layer] || [0.82, 0.20, 0.18];
+    const exponent = layer === 'metalPlacer' ? 0.55 : 1.25;
+    const t = Math.pow(Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0)), exponent);
+    return blendColor(background, endpoint, t);
+}
+
 // Rain shadow diverging color: blue (windward boost) ↔ neutral gray ↔ red-brown (leeward shadow)
 // Input is signed: positive = windward, negative = leeward shadow (propagated downwind)
 function rainShadowColor(value) {
@@ -401,7 +467,9 @@ export function buildMapMesh() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
+    const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -470,6 +538,8 @@ export function buildMapMesh() {
                 cr = 0.5; cg = 0; cb = 0.5;
             } else if (isHydrology && hydrologyArr) {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+            } else if (isGeology && geologyArr) {
+                [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
             } else if (dbgArr) {
                 [cr, cg, cb] = debugValueToColor(dbgArr[br], dbgMin, dbgMax);
             } else if (showPlates) {
@@ -559,6 +629,7 @@ export function buildMapMesh() {
     state.mapFaceToSide = faceToSide.subarray(0, triCount);
     state._mapHoverBackup = null;
     state._mapKoppenHoverBackup = null;
+    state._mapCategoryHoverBackup = null;
     state._mapPendingBackup = null;
     // Wrap clones: children inherit parent visibility + transform
     const cloneL = new THREE.Mesh(geo, mat); cloneL.position.x = -4;
@@ -840,7 +911,9 @@ export function buildMesh() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
+    const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -939,6 +1012,8 @@ export function buildMesh() {
                 cr = 0.5; cg = 0; cb = 0.5;
             } else if (isHydrology && hydrologyArr) {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+            } else if (isGeology && geologyArr) {
+                [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
             } else if (isLandHeightmap) {
                 [cr, cg, cb] = landHeightmapColor(r_elevation[br]);
             } else if (isHeightmap) {
@@ -973,6 +1048,7 @@ export function buildMesh() {
 
     state._hoverBackup = null;
     state._koppenHoverBackup = null;
+    state._categoryHoverBackup = null;
     state._sideSwapped = sideSwapped;
 
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -1084,7 +1160,9 @@ export function updateMeshColors() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
+    const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1107,6 +1185,7 @@ export function updateMeshColors() {
         if (isOceanCurrent && oceanWarmth && oceanSpeed) return oceanCurrentColor(oceanWarmth[br], oceanSpeed[br], r_elevation[br] <= 0);
         if (isOceanCurrent) return [0.5, 0, 0.5];
         if (isHydrology && hydrologyArr) return hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+        if (isGeology && geologyArr) return geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
         if (isLandHeightmap) return landHeightmapColor(r_elevation[br]);
         if (isHeightmap) return heightmapColor(r_elevation[br]);
         if (dbgArr) return debugValueToColor(dbgArr[br], dbgMin, dbgMax);
@@ -1162,6 +1241,7 @@ export function updateMeshColors() {
     colorAttr.needsUpdate = true;
     state._hoverBackup = null;
     state._koppenHoverBackup = null;
+    state._categoryHoverBackup = null;
     state._pendingBackup = null;
 
     // Update map mesh colors in-place (if map exists)
@@ -1197,6 +1277,7 @@ export function updateMeshColors() {
         mapColorAttr.needsUpdate = true;
         state._mapHoverBackup = null;
         state._mapKoppenHoverBackup = null;
+        state._mapCategoryHoverBackup = null;
         state._mapPendingBackup = null;
     }
 
@@ -1389,6 +1470,61 @@ export function updateMapKoppenHoverHighlight() {
         state._mapKoppenHoverBackup = { offsets, saved };
     }
     colorAttr.needsUpdate = true;
+}
+
+function updateCategoricalHover(meshObject, faceToSide, backupKey) {
+    if (!meshObject || !state.curData) return;
+    const colorAttr = meshObject.geometry.getAttribute('color');
+    const colors = colorAttr.array;
+
+    if (state[backupKey]) {
+        const { offsets, saved } = state[backupKey];
+        for (let i = 0; i < offsets.length; i++) {
+            const off = offsets[i] * 9;
+            for (let j = 0; j < 9; j++) colors[off + j] = saved[i * 9 + j];
+        }
+        state[backupKey] = null;
+    }
+
+    if (state.hoveredCategoryId >= 0 && state.hoveredCategoryField) {
+        const { mesh } = state.curData;
+        const categories = state.curData[state.hoveredCategoryField];
+        if (!categories) { colorAttr.needsUpdate = true; return; }
+        const faceCount = faceToSide ? faceToSide.length : mesh.numSides;
+        let count = 0;
+        for (let face = 0; face < faceCount; face++) {
+            const side = faceToSide ? faceToSide[face] : face;
+            if (categories[mesh.s_begin_r(side)] === state.hoveredCategoryId) count++;
+        }
+        const offsets = new Int32Array(count);
+        const saved = new Float32Array(count * 9);
+        let idx = 0;
+        for (let face = 0; face < faceCount; face++) {
+            const side = faceToSide ? faceToSide[face] : face;
+            if (categories[mesh.s_begin_r(side)] !== state.hoveredCategoryId) continue;
+            offsets[idx] = face;
+            const off = face * 9;
+            for (let j = 0; j < 9; j++) saved[idx * 9 + j] = colors[off + j];
+            for (let j = 0; j < 3; j++) {
+                colors[off + j*3]     = Math.min(1, colors[off + j*3]     + 0.22);
+                colors[off + j*3 + 1] = Math.min(1, colors[off + j*3 + 1] + 0.22);
+                colors[off + j*3 + 2] = Math.min(1, colors[off + j*3 + 2] + 0.22);
+            }
+            idx++;
+        }
+        state[backupKey] = { offsets, saved };
+    }
+    colorAttr.needsUpdate = true;
+}
+
+// Categorical geology legend hover highlight for globe and flat-map meshes.
+export function updateCategoricalHoverHighlight() {
+    updateCategoricalHover(state.planetMesh, null, '_categoryHoverBackup');
+}
+
+export function updateMapCategoricalHoverHighlight() {
+    if (!state.mapFaceToSide) return;
+    updateCategoricalHover(state.mapMesh, state.mapFaceToSide, '_mapCategoryHoverBackup');
 }
 
 // Pending-toggle highlight — tint plates queued for rebuild (surgical save/restore).
@@ -2030,6 +2166,8 @@ function createExportLayerContext(type) {
         'continentality', 'tempContinentality',
         'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
         'riversAnnual', 'riverSeasonality', 'lakeDepth',
+        ...REGIONAL_GEOLOGY_LAYERS,
+        ...METAL_POTENTIAL_LAYERS,
     ]);
 
     const dbgArr = !specialTypes.has(type) ? debugLayers?.[type] : null;
@@ -2045,6 +2183,9 @@ function createExportLayerContext(type) {
 
     const colorForRegion = (r) => {
         const elevation = r_elevation[r];
+        if (REGIONAL_GEOLOGY_LAYERS.has(type) || METAL_POTENTIAL_LAYERS.has(type)) {
+            return geologyColor(type, debugLayers[type][r], elevation, r, data);
+        }
         switch (type) {
             case 'color':
                 return elevationToColor(elevation);

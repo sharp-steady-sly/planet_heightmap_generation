@@ -4,6 +4,7 @@ import { state } from './state.js';
 import { elevToHeightKm } from './color-map.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { ELEVATION_ENCODING, EXPORT_LAYER_DEFINITIONS, exportLayerHasData } from './export-layers.js';
+import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -48,6 +49,15 @@ export async function exportWorldData(onProgress) {
     const headers = [
         'region_id', 'latitude_deg', 'longitude_deg', 'elevation_m', 'surface',
         'plate_id', 'plate_crust', 'koppen_id', 'koppen_code', 'koppen_name',
+        'surface_lithology_id', 'surface_lithology_code', 'surface_lithology_name',
+        'basement_age_ma', 'surface_unit_age_ma',
+        'intrusive_type_id', 'intrusive_type_code', 'intrusive_type_name', 'intrusive_common_metals', 'intrusive_strength',
+        'metamorphic_grade', 'sediment_thickness_km',
+        'metal_province_id', 'metal_province_code', 'metal_province_name',
+        'metal_province_common_metals', 'metal_province_other_resources',
+        'metal_arc_hydrothermal_potential', 'metal_orogenic_gold_potential',
+        'metal_vms_base_metals_potential', 'metal_mafic_magmatic_potential',
+        'metal_craton_related_potential', 'metal_sedimentary_potential', 'metal_placer_potential',
         'temperature_summer_c', 'temperature_winter_c',
         'precipitation_summer_relative', 'precipitation_winter_relative',
         'precipitation_summer_approx_mm', 'precipitation_winter_approx_mm',
@@ -76,6 +86,12 @@ export async function exportWorldData(onProgress) {
         const plate = r_plate?.[r];
         const koppenId = debugLayers.koppen?.[r];
         const koppen = Number.isInteger(koppenId) ? KOPPEN_CLASSES[koppenId] : null;
+        const lithologyId = data.r_surface_lithology?.[r];
+        const lithology = Number.isInteger(lithologyId) ? LITHOLOGY_CLASSES[lithologyId] : null;
+        const intrusiveTypeId = data.r_intrusive_type?.[r];
+        const intrusiveType = Number.isInteger(intrusiveTypeId) ? INTRUSIVE_TYPES[intrusiveTypeId] : null;
+        const metalProvinceId = data.r_metal_province?.[r];
+        const metalProvince = Number.isInteger(metalProvinceId) ? METAL_PROVINCES[metalProvinceId] : null;
         const tempSummer = debugLayers.tempSummer?.[r] ?? data.r_temperature_summer?.[r];
         const tempWinter = debugLayers.tempWinter?.[r] ?? data.r_temperature_winter?.[r];
         const precipSummer = debugLayers.precipSummer?.[r] ?? data.r_precip_summer?.[r];
@@ -106,6 +122,30 @@ export async function exportWorldData(onProgress) {
             Number.isFinite(koppenId) ? koppenId : '',
             koppen?.code || '',
             koppen?.name || '',
+            Number.isFinite(lithologyId) ? lithologyId : '',
+            lithology?.code || '',
+            lithology?.name || '',
+            finite(data.r_basement_age_ma?.[r], 1),
+            finite(data.r_surface_age_ma?.[r], 1),
+            Number.isFinite(intrusiveTypeId) ? intrusiveTypeId : '',
+            intrusiveType?.code || '',
+            intrusiveType?.name || '',
+            intrusiveType?.metals?.join('; ') || '',
+            finite(data.r_intrusive_strength?.[r]),
+            finite(data.r_metamorphic_grade?.[r]),
+            finite(data.r_sediment_thickness_km?.[r], 3),
+            Number.isFinite(metalProvinceId) ? metalProvinceId : '',
+            metalProvince?.code || '',
+            metalProvince?.name || '',
+            metalProvince?.metals?.join('; ') || '',
+            metalProvince?.otherResources?.join('; ') || '',
+            finite(data.r_metal_arc?.[r]),
+            finite(data.r_metal_orogenic?.[r]),
+            finite(data.r_metal_vms?.[r]),
+            finite(data.r_metal_mafic?.[r]),
+            finite(data.r_metal_craton?.[r]),
+            finite(data.r_metal_sedimentary?.[r]),
+            finite(data.r_metal_placer?.[r]),
             finite(normalizedTempToC(tempSummer), 2),
             finite(normalizedTempToC(tempWinter), 2),
             finite(precipSummer), finite(precipWinter),
@@ -149,7 +189,7 @@ export async function exportWorldData(onProgress) {
     downloadBlob(new Blob(chunks, { type: 'text/csv;charset=utf-8' }), `orogen-world-data-${code}.csv`);
 
     const metadata = {
-        schemaVersion: 2,
+        schemaVersion: 4,
         generator: 'World Orogen',
         exportedAt: new Date().toISOString(),
         planetCode: code,
@@ -174,7 +214,16 @@ export async function exportWorldData(onProgress) {
             temperature: 'Normalized simulation temperature converted linearly from 0..1 to -45..45 C.',
             seasons: 'Summer and winter are northern-hemisphere seasons; local warm/cold seasons reverse in the southern hemisphere.',
             hydrology: 'Flow accumulation is relative precipitation-weighted runoff on a depression-conditioned drainage graph. Lake candidates are terrain depressions at least 25 m below their spill surface; neither product includes calibrated evaporation, infiltration, dams, or channel hydraulics.',
+            geology: 'Lithology, ages, intrusions, metamorphism, and sediment thickness are deterministic regional inferences from generated tectonic settings. They are not a stratigraphic or geodynamic forward model.',
+            metals: 'Metal values are relative favorability for broad deposit-forming environments, not deposits, reserves, grades, or guarantees. Placer favorability routes eroding source potential through the generated drainage network.',
             geometry: 'Rows represent irregular spherical mesh regions, not raster pixels.',
+        },
+        classificationCatalogs: {
+            surfaceLithology: LITHOLOGY_CLASSES.map(({ code, name, color }) => ({ code, name, color })),
+            intrusiveTypes: INTRUSIVE_TYPES.map(({ code, name, color, metals }) => ({ code, name, color, metals })),
+            metalProvinces: METAL_PROVINCES.map(({ code, name, color, metals, otherResources }) => ({
+                code, name, color, metals, otherResources: otherResources || [],
+            })),
         },
         availableRasterLayers: EXPORT_LAYER_DEFINITIONS
             .filter(def => (!state.importedHeightmap || def.importSupported) && exportLayerHasData(def, data))

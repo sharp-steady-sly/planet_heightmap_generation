@@ -7,12 +7,13 @@ import { renderer, scene, camera, ctrl, waterMesh, atmosMesh, starsMesh,
 import { state } from './state.js';
 import { generate, reapplyViaWorker, computeClimateViaWorker, editRecomputeViaWorker } from './generate.js';
 import { encodePlanetCode, decodePlanetCode } from './planet-code.js';
-import { buildMesh, updateMeshColors, updateSuperPlateBorders, buildMapMesh, rebuildGrids, buildWindArrows, buildOceanCurrentArrows, updateKoppenHoverHighlight, updateMapKoppenHoverHighlight, updatePendingHighlight, updateMapPendingHighlight } from './planet-mesh.js';
+import { buildMesh, updateMeshColors, updateSuperPlateBorders, buildMapMesh, rebuildGrids, buildWindArrows, buildOceanCurrentArrows, updateKoppenHoverHighlight, updateMapKoppenHoverHighlight, updateCategoricalHoverHighlight, updateMapCategoricalHoverHighlight, updatePendingHighlight, updateMapPendingHighlight } from './planet-mesh.js';
 import { setupEditMode } from './edit-mode.js';
 import { detailFromSlider, sliderFromDetail } from './detail-scale.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { elevationToColor } from './color-map.js';
 import { initExportUI } from './export-ui.js';
+import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 
 // Slider value displays + stale tracking
 const sliderIds = ['sN','sP','sCn','sJ','sNs','sCsv','sLc'];
@@ -204,7 +205,7 @@ const CLIMATE_LAYERS = new Set([
     'tempSummer', 'tempWinter',
     'koppen', 'biome', 'continentality',
     'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
-    'riversAnnual', 'riverSeasonality', 'lakeDepth'
+    'riversAnnual', 'riverSeasonality', 'lakeDepth', 'metalPlacer'
 ]);
 
 // Map tabs → tab-layer mapping
@@ -228,6 +229,8 @@ function switchVisualization(layer) {
 function applyLayer(layer) {
     state.debugLayer = layer;
     state.hoveredKoppen = -1;
+    state.hoveredCategoryField = '';
+    state.hoveredCategoryId = -1;
     updateMeshColors();
     // Show/hide wind/ocean arrows
     const isWindLayer = layer === 'pressureSummer' || layer === 'pressureWinter' ||
@@ -314,6 +317,59 @@ const KOPPEN_DESCRIPTIONS = {
     ET:  'Tundra — Permafrost, only warmest month above 0 C. Arctic coasts, high mountain plateaus.',
     EF:  'Ice cap — Permanent ice, never above 0 C. Antarctica interior, Greenland ice sheet.',
 };
+
+const METAL_LAYER_PROVINCE = Object.freeze({
+    metalArc: 1,
+    metalOrogenic: 2,
+    metalVms: 3,
+    metalMafic: 4,
+    metalCraton: 5,
+    metalSedimentary: 6,
+    metalPlacer: 7,
+});
+
+function titleCaseList(values) {
+    return (values || []).map(value => value.charAt(0).toUpperCase() + value.slice(1)).join(' / ');
+}
+
+function categoricalLegend(classes, { skipFirst = false, details = false, compact = false } = {}) {
+    const firstClassId = skipFirst ? 1 : 0;
+    const items = classes.slice(firstClassId).map((entry, index) => {
+        const classId = firstClassId + index;
+        const [r, g, b] = entry.color;
+        const color = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+        let detail = '';
+        if (details && entry.metals?.length) detail = `${titleCaseList(entry.metals)}`;
+        if (details && entry.otherResources?.length) {
+            detail += `${detail ? '<br>' : ''}Other: ${titleCaseList(entry.otherResources)}`;
+        }
+        return `<div class="legend-categorical-item" data-class-id="${classId}">` +
+            `<span class="legend-categorical-swatch" style="background:${color}"></span>` +
+            `<div><div class="legend-categorical-title">${entry.name}</div>` +
+            (detail ? `<div class="legend-categorical-detail">${detail}</div>` : '') +
+            `</div></div>`;
+    }).join('');
+    return `<div class="legend-categorical${compact ? ' compact' : ''}">${items}</div>`;
+}
+
+function wireCategoricalLegendHover(field) {
+    vizLegend.querySelectorAll('.legend-categorical-item[data-class-id]').forEach(item => {
+        item.addEventListener('mouseenter', () => {
+            state.hoveredCategoryField = field;
+            state.hoveredCategoryId = Number(item.dataset.classId);
+            item.classList.add('active');
+            updateCategoricalHoverHighlight();
+            updateMapCategoricalHoverHighlight();
+        });
+        item.addEventListener('mouseleave', () => {
+            state.hoveredCategoryField = '';
+            state.hoveredCategoryId = -1;
+            item.classList.remove('active');
+            updateCategoricalHoverHighlight();
+            updateMapCategoricalHoverHighlight();
+        });
+    });
+}
 
 // Legend rendering
 function updateLegend(layer) {
@@ -405,6 +461,34 @@ function updateLegend(layer) {
         const biomeGrad = biomeColors.map((c, i) => `${c} ${biomePcts[i]}%`).join(', ');
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,${biomeGrad})"></div>` +
             `<div class="legend-labels"><span>${biomeStops[0].label}</span><span>${biomeStops[3].label}</span><span>${biomeStops[6].label}</span></div>`;
+    } else if (layer === 'surfaceLithology') {
+        vizLegend.innerHTML = categoricalLegend(LITHOLOGY_CLASSES, { compact: true });
+        wireCategoricalLegendHover('r_surface_lithology');
+    } else if (layer === 'metalProvince') {
+        vizLegend.innerHTML = categoricalLegend(METAL_PROVINCES, { details: true });
+        wireCategoricalLegendHover('r_metal_province');
+    } else if (layer === 'intrusiveBodies') {
+        vizLegend.innerHTML = categoricalLegend(INTRUSIVE_TYPES, { skipFirst: true, details: true });
+        wireCategoricalLegendHover('r_intrusive_type');
+    } else if (layer === 'basementAge') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#e8d8b8 0%,#d77b61 28%,#744a78 62%,#252044 100%)"></div>` +
+            `<div class="legend-labels"><span>Young</span><span>1.8 Ga</span><span>Ancient</span></div>`;
+    } else if (layer === 'surfaceAge') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#f2e8bd 0%,#cf8464 32%,#6f4c79 68%,#24213e 100%)"></div>` +
+            `<div class="legend-labels"><span>Recent</span><span>Older</span><span>Ancient</span></div>`;
+    } else if (layer === 'metamorphicGrade') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#d9ddd8 0%,#72a796 40%,#76548b 72%,#3a174f 100%)"></div>` +
+            `<div class="legend-labels"><span>Low</span><span>Regional</span><span>High</span></div>`;
+    } else if (layer === 'sedimentThickness') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#eee6ce 0%,#c8a96d 45%,#6f4a2f 100%)"></div>` +
+            `<div class="legend-labels"><span>Thin</span><span>Basin Fill</span><span>Thick</span></div>`;
+    } else if (layer.startsWith('metal')) {
+        const province = METAL_PROVINCES[METAL_LAYER_PROVINCE[layer]];
+        const resources = province
+            ? `<div class="legend-association"><strong>Common metals:</strong> ${titleCaseList(province.metals)}</div>`
+            : '';
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#d2d0c7 0%,#d6aa48 45%,#b62d20 76%,#5c1221 100%)"></div>` +
+            `<div class="legend-labels"><span>Background</span><span>Favorable</span><span>Highest</span></div>` + resources;
     } else if (layer === 'rainShadowSummer' || layer === 'rainShadowWinter') {
         // Rain shadow diverging legend: leeward shadow ↔ neutral ↔ windward boost
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,rgb(230,51,33) 0%,rgb(140,140,148) 50%,rgb(38,102,243) 100%)"></div>` +
