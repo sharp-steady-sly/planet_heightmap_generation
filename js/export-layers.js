@@ -103,6 +103,33 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
     layer('tempContinentality', 'Temperature Continentality', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'climate zone 0-1',
     }),
+
+    layer('flowAccumulationAnnual', 'Flow Accumulation (Annual)', 'Hydrology', {
+        requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
+        description: 'Annual precipitation-weighted runoff accumulated through the drainage network.',
+    }),
+    layer('flowAccumulationSummer', 'Flow Accumulation (Summer)', 'Hydrology', {
+        requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
+        description: 'Summer precipitation accumulated through the drainage network.',
+    }),
+    layer('flowAccumulationWinter', 'Flow Accumulation (Winter)', 'Hydrology', {
+        requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
+        description: 'Winter precipitation accumulated through the drainage network.',
+    }),
+    layer('riversAnnual', 'River Network (Annual)', 'Hydrology', {
+        filename: 'river-network-annual', requiresClimate: true, worldbuilding: true,
+        unit: 'relative river strength',
+        description: 'Major drainage paths selected from annual accumulated runoff.',
+    }),
+    layer('riverSeasonality', 'River Seasonality', 'Hydrology', {
+        requiresClimate: true, worldbuilding: true, unit: 'winter -1 to summer +1',
+        description: 'Seasonal dominance along major drainage paths.',
+    }),
+    layer('lakeDepth', 'Lake Candidates', 'Hydrology', {
+        filename: 'lake-candidates', requiresClimate: true, worldbuilding: true,
+        unit: 'potential depth, normalized at 1 km',
+        description: 'Depressions deeper than 25 metres on the conditioned drainage surface.',
+    }),
     layer('erosionDelta', 'Erosion Delta', 'Elevation', {
         filename: 'erosion-delta', worldbuilding: true, unit: 'raw elevation delta',
     }),

@@ -132,7 +132,7 @@
             <li>Interactive plate editing — select multiple plates for batch land/ocean toggling with visual preview before rebuild</li>
             <li>Heightmap import — bring your own equirectangular B&amp;W heightmap (Earth, Mars, hand-drawn) and run full climate simulation on it</li>
             <li>Multiple visualization modes: terrain, satellite biome, climate, and heightmap</li>
-            <li>26 detailed inspection layers for geology, atmosphere, ocean, and climate</li>
+            <li>32 detailed inspection layers for geology, atmosphere, ocean, climate, and hydrology</li>
             <li>All-layer map atlases, 16-bit elevation and bathymetry, masks, and per-region CSV/JSON export</li>
             <li>Shareable planet codes — copy a code to share your exact planet with others</li>
         </ul>
@@ -339,6 +339,14 @@
                             <option value="continentality">Continentality</option>
                             <option value="tempContinentality">Temp Continentality</option>
                         </optgroup>
+                        <optgroup label="Hydrology">
+                            <option value="flowAccumulationAnnual">Flow Accumulation (Annual)</option>
+                            <option value="flowAccumulationSummer">Flow Accumulation (Summer)</option>
+                            <option value="flowAccumulationWinter">Flow Accumulation (Winter)</option>
+                            <option value="riversAnnual">River Network (Annual)</option>
+                            <option value="riverSeasonality">River Seasonality</option>
+                            <option value="lakeDepth">Lake Candidates</option>
+                        </optgroup>
                         <optgroup label="Elevation">
                             <option value="heightmap">Full Heightmap</option>
                         </optgroup>
@@ -406,7 +414,7 @@
             <div class="tutorial-step" data-step="4">
                 <h3>Save &amp; Share</h3>
                 <p>Every planet gets a unique <strong>planet code</strong> shown below the Build button &mdash; including any plates you've edited. <strong>Copy</strong> it to share with others, or <strong>paste</strong> a code and click <strong>Load</strong> to recreate someone else's world. You can also share the URL directly.</p>
-                <p>Use <strong>Export Map</strong> to download one map, a worldbuilding atlas, every available Inspect layer, or per-region CSV data. Elevation exports include full land-and-ocean height, land-only height, bathymetry, and inverse masks.</p>
+                <p>Use <strong>Export Map</strong> to download one map, a worldbuilding atlas, every available Inspect layer, or per-region CSV data. Exports include elevation and bathymetry, climate, seasonal flow accumulation, rivers, lake candidates, and inverse masks.</p>
             </div>
             <div class="tutorial-dots">
                 <span class="dot active" data-dot="0"></span>

@@ -59,6 +59,10 @@ export async function exportWorldData(onProgress) {
         'ocean_current_east_winter', 'ocean_current_north_winter',
         'ocean_current_speed_winter_relative', 'ocean_current_warmth_winter', 'ocean_current_bearing_winter_deg',
         'rain_shadow_summer', 'rain_shadow_winter', 'continentality', 'temperature_continentality',
+        'downstream_region_id', 'catchment_cells',
+        'flow_accumulation_summer_relative', 'flow_accumulation_winter_relative',
+        'flow_accumulation_annual_relative', 'river_strength', 'river_seasonality',
+        'lake_candidate_id', 'lake_candidate_depth_m',
         'erosion_delta_raw', 'erosion_delta_approx_m',
     ];
 
@@ -117,6 +121,16 @@ export async function exportWorldData(onProgress) {
             finite(bearingDegrees(oceanEW, oceanNW), 2),
             finite(debugLayers.rainShadowSummer?.[r]), finite(debugLayers.rainShadowWinter?.[r]),
             finite(debugLayers.continentality?.[r]), finite(debugLayers.tempContinentality?.[r]),
+            Number.isInteger(data.r_flow_receiver?.[r]) && data.r_flow_receiver[r] >= 0
+                ? data.r_flow_receiver[r] : '',
+            finite(data.r_catchment_cells?.[r], 0),
+            finite(data.r_flow_accumulation_summer?.[r]),
+            finite(data.r_flow_accumulation_winter?.[r]),
+            finite(data.r_flow_accumulation_annual?.[r]),
+            finite(data.r_river_strength?.[r]), finite(data.r_river_seasonality?.[r]),
+            Number.isInteger(data.r_lake_id?.[r]) && data.r_lake_id[r] >= 0
+                ? data.r_lake_id[r] : '',
+            finite(Number.isFinite(data.r_lake_depth_km?.[r]) ? data.r_lake_depth_km[r] * 1000 : NaN, 2),
             finite(erosionDelta), finite(erosionMeters, 2),
         ];
         chunk += values.map(csvCell).join(',') + '\r\n';
@@ -135,7 +149,7 @@ export async function exportWorldData(onProgress) {
     downloadBlob(new Blob(chunks, { type: 'text/csv;charset=utf-8' }), `orogen-world-data-${code}.csv`);
 
     const metadata = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         generator: 'World Orogen',
         exportedAt: new Date().toISOString(),
         planetCode: code,
@@ -159,6 +173,7 @@ export async function exportWorldData(onProgress) {
             pressure: 'Pressure layers store deviation from 1013 hPa; CSV values add that baseline.',
             temperature: 'Normalized simulation temperature converted linearly from 0..1 to -45..45 C.',
             seasons: 'Summer and winter are northern-hemisphere seasons; local warm/cold seasons reverse in the southern hemisphere.',
+            hydrology: 'Flow accumulation is relative precipitation-weighted runoff on a depression-conditioned drainage graph. Lake candidates are terrain depressions at least 25 m below their spill surface; neither product includes calibrated evaporation, infiltration, dams, or channel hydraulics.',
             geometry: 'Rows represent irregular spherical mesh regions, not raster pixels.',
         },
         availableRasterLayers: EXPORT_LAYER_DEFINITIONS

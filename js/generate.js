@@ -10,6 +10,7 @@ import { computeOceanCurrents } from './ocean.js';
 import { computePrecipitation } from './precipitation.js';
 import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
+import { computeHydrology } from './hydrology.js';
 
 // Main thread still needs Delaunator for SphereMesh reconstruction
 setDelaunator(Delaunator);
@@ -75,6 +76,29 @@ function fail(err) {
     console.error('[World Orogen] Generation failed:', err);
     resetUI();
     if (_onProgress) _onProgress(0, '');
+}
+
+const HYDROLOGY_FIELD_KEYS = [
+    'r_flow_receiver', 'r_catchment_cells',
+    'r_flow_accumulation_summer', 'r_flow_accumulation_winter',
+    'r_flow_accumulation_annual', 'r_river_strength',
+    'r_river_seasonality', 'r_lake_depth_km', 'r_lake_id', 'lakeCount',
+];
+
+const HYDROLOGY_DEBUG_KEYS = [
+    'flowAccumulationSummer', 'flowAccumulationWinter',
+    'flowAccumulationAnnual', 'riversAnnual', 'riverSeasonality', 'lakeDepth',
+];
+
+function assignHydrologyFields(target, source) {
+    for (const key of HYDROLOGY_FIELD_KEYS) target[key] = source[key] ?? null;
+}
+
+function clearHydrologyFields(target) {
+    for (const key of HYDROLOGY_FIELD_KEYS) target[key] = null;
+    if (target.debugLayers) {
+        for (const key of HYDROLOGY_DEBUG_KEYS) target.debugLayers[key] = null;
+    }
 }
 
 // Reconstruct SphereMesh from transferred data
@@ -240,6 +264,12 @@ if (worker) {
                     debugLayers: msg.debugLayers,
                     terrainMetrics: msg.terrainMetrics || null
                 };
+                assignHydrologyFields(state.curData, msg);
+                console.log(
+                    `[World Orogen] Hydrology: ${state.curData.r_flow_receiver?.length || 0} routed regions, ` +
+                    `${state.curData.lakeCount || 0} lake candidates, ` +
+                    `${state.curData.debugLayers?.riversAnnual ? 'layers ready' : 'layers missing'}`,
+                );
                 if (msg.terrainMetrics) window.__terrainMetrics = msg.terrainMetrics;
                 const tState = performance.now() - tStateStart;
 
@@ -429,6 +459,7 @@ if (worker) {
                     d.r_temperature_summer = msg.r_temperature_summer;
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
+                assignHydrologyFields(d, msg);
                 if (msg.windDebugLayers) {
                     Object.assign(d.debugLayers, msg.windDebugLayers);
                 }
@@ -477,6 +508,7 @@ if (worker) {
                         d.debugLayers.precipSummer = null;
                         d.debugLayers.precipWinter = null;
                     }
+                    clearHydrologyFields(d);
                 }
 
                 const tBuildStart = performance.now();
@@ -552,6 +584,7 @@ if (worker) {
                     d.r_temperature_summer = msg.r_temperature_summer;
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
+                assignHydrologyFields(d, msg);
                 d.debugLayers = msg.debugLayers;
                 // Fallback: compute precip/temp on main thread if climate was
                 // requested but data is missing (e.g. partial worker result)
@@ -597,6 +630,7 @@ if (worker) {
                         d.debugLayers.precipSummer = null;
                         d.debugLayers.precipWinter = null;
                     }
+                    clearHydrologyFields(d);
                 }
 
                 const tColorsStart = performance.now();
@@ -656,6 +690,7 @@ if (worker) {
                     d.r_precip_winter = msg.r_precip_winter;
                     d.r_temperature_summer = msg.r_temperature_summer;
                     d.r_temperature_winter = msg.r_temperature_winter;
+                    assignHydrologyFields(d, msg);
                     // Merge climate debug layers
                     if (msg.climateDebugLayers && d.debugLayers) {
                         Object.assign(d.debugLayers, msg.climateDebugLayers);
@@ -832,6 +867,11 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 debugLayers.tempWinter = tempResult.r_temperature_winter;
                 debugLayers.tempContinentality = tempResult.r_tempContinentality;
                 debugLayers.koppen = classifyKoppen(ctx.mesh, r_elevation, tempResult, precipResult);
+                ctx.hydrologyResult = computeHydrology(
+                    ctx.mesh, r_elevation,
+                    precipResult.r_precip_summer, precipResult.r_precip_winter,
+                );
+                Object.assign(debugLayers, ctx.hydrologyResult.debugLayers);
             }
             const t_elevation = new Float32Array(ctx.mesh.numTriangles);
             for (let t = 0; t < ctx.mesh.numTriangles; t++) {
@@ -871,6 +911,7 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 r_temperature_summer: ctx.tempResult ? ctx.tempResult.r_temperature_summer : null,
                 r_temperature_winter: ctx.tempResult ? ctx.tempResult.r_temperature_winter : null
             };
+            assignHydrologyFields(state.curData, ctx.hydrologyResult || {});
             state.climateComputed = !skipClimate;
             buildMesh();
             progress(100, 'Done');

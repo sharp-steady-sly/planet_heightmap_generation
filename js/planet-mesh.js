@@ -210,6 +210,54 @@ function precipitationColor(value) {
     }
 }
 
+const HYDROLOGY_LAYERS = new Set([
+    'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
+    'riversAnnual', 'riverSeasonality', 'lakeDepth',
+]);
+
+function hydrologyColor(layer, value, elevation, riverStrength = 0) {
+    if (elevation <= 0) return [0.06, 0.14, 0.24];
+    const t = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+
+    if (layer === 'riversAnnual') {
+        if (t <= 0) return [0.84, 0.82, 0.72];
+        return [0.10 - t * 0.06, 0.52 - t * 0.30, 0.82 + t * 0.16];
+    }
+    if (layer === 'lakeDepth') {
+        if (t <= 0) return [0.84, 0.82, 0.72];
+        return [0.12 - t * 0.07, 0.58 - t * 0.34, 0.88 + t * 0.10];
+    }
+    if (layer === 'riverSeasonality') {
+        if (riverStrength <= 0) return [0.84, 0.82, 0.72];
+        const signed = Math.max(-1, Math.min(1, value));
+        const land = [0.84, 0.82, 0.72];
+        const balanced = [0.30, 0.31, 0.35];
+        const winter = [0.05, 0.35, 0.82];
+        const summer = [0.92, 0.30, 0.06];
+        const endpoint = signed < 0 ? winter : summer;
+        const seasonalBias = Math.pow(Math.abs(signed), 0.75);
+        const seasonalColor = [
+            balanced[0] + (endpoint[0] - balanced[0]) * seasonalBias,
+            balanced[1] + (endpoint[1] - balanced[1]) * seasonalBias,
+            balanced[2] + (endpoint[2] - balanced[2]) * seasonalBias,
+        ];
+        const visibility = 0.65 + 0.35 * Math.sqrt(Math.max(0, Math.min(1, riverStrength)));
+        return [
+            land[0] + (seasonalColor[0] - land[0]) * visibility,
+            land[1] + (seasonalColor[1] - land[1]) * visibility,
+            land[2] + (seasonalColor[2] - land[2]) * visibility,
+        ];
+    }
+
+    // Accumulation: pale uplands through cyan to deep blue channels.
+    if (t < 0.35) {
+        const s = t / 0.35;
+        return [0.88 - s * 0.36, 0.86 + s * 0.02, 0.76 + s * 0.08];
+    }
+    const s = (t - 0.35) / 0.65;
+    return [0.52 - s * 0.47, 0.88 - s * 0.62, 0.84 + s * 0.14];
+}
+
 // Rain shadow diverging color: blue (windward boost) ↔ neutral gray ↔ red-brown (leeward shadow)
 // Input is signed: positive = windward, negative = leeward shadow (propagated downwind)
 function rainShadowColor(value) {
@@ -351,7 +399,9 @@ export function buildMapMesh() {
     const contArr = isCont ? (debugLayers && debugLayers.continentality) : null;
     const isTempCont = debugLayer === 'tempContinentality';
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
+    const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -418,6 +468,8 @@ export function buildMapMesh() {
                 [cr, cg, cb] = oceanCurrentColor(oceanWarmth[br], oceanSpeed[br], r_elevation[br] <= 0);
             } else if (isOceanCurrent) {
                 cr = 0.5; cg = 0; cb = 0.5;
+            } else if (isHydrology && hydrologyArr) {
+                [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
             } else if (dbgArr) {
                 [cr, cg, cb] = debugValueToColor(dbgArr[br], dbgMin, dbgMax);
             } else if (showPlates) {
@@ -786,7 +838,9 @@ export function buildMesh() {
     const contArr = isCont ? (debugLayers && debugLayers.continentality) : null;
     const isTempCont = debugLayer === 'tempContinentality';
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
+    const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -883,6 +937,8 @@ export function buildMesh() {
                 [cr, cg, cb] = oceanCurrentColor(oceanWarmth[br], oceanSpeed[br], r_elevation[br] <= 0);
             } else if (isOceanCurrent) {
                 cr = 0.5; cg = 0; cb = 0.5;
+            } else if (isHydrology && hydrologyArr) {
+                [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
             } else if (isLandHeightmap) {
                 [cr, cg, cb] = landHeightmapColor(r_elevation[br]);
             } else if (isHeightmap) {
@@ -1026,7 +1082,9 @@ export function updateMeshColors() {
     const contArr = isCont ? (debugLayers && debugLayers.continentality) : null;
     const isTempCont = debugLayer === 'tempContinentality';
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
+    const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1048,6 +1106,7 @@ export function updateMeshColors() {
         if (isRainShadow && rainShadowArr) return rainShadowColor(rainShadowArr[br]);
         if (isOceanCurrent && oceanWarmth && oceanSpeed) return oceanCurrentColor(oceanWarmth[br], oceanSpeed[br], r_elevation[br] <= 0);
         if (isOceanCurrent) return [0.5, 0, 0.5];
+        if (isHydrology && hydrologyArr) return hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
         if (isLandHeightmap) return landHeightmapColor(r_elevation[br]);
         if (isHeightmap) return heightmapColor(r_elevation[br]);
         if (dbgArr) return debugValueToColor(dbgArr[br], dbgMin, dbgMax);
@@ -1969,6 +2028,8 @@ function createExportLayerContext(type) {
         'oceanCurrentWinter', 'precipSummer', 'precipWinter',
         'rainShadowSummer', 'rainShadowWinter', 'tempSummer', 'tempWinter',
         'continentality', 'tempContinentality',
+        'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
+        'riversAnnual', 'riverSeasonality', 'lakeDepth',
     ]);
 
     const dbgArr = !specialTypes.has(type) ? debugLayers?.[type] : null;
@@ -2024,6 +2085,13 @@ function createExportLayerContext(type) {
                 return continentalityColor(debugLayers[type][r]);
             case 'tempContinentality':
                 return tempContinentalityColor(debugLayers[type][r]);
+            case 'flowAccumulationAnnual':
+            case 'flowAccumulationSummer':
+            case 'flowAccumulationWinter':
+            case 'riversAnnual':
+            case 'riverSeasonality':
+            case 'lakeDepth':
+                return hydrologyColor(type, debugLayers[type][r], elevation, debugLayers.riversAnnual?.[r]);
             default:
                 return debugValueToColor(dbgArr[r], dbgMin, dbgMax);
         }

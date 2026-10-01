@@ -14,6 +14,7 @@ import { computeOceanCurrents } from './ocean.js';
 import { computePrecipitation } from './precipitation.js';
 import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
+import { computeHydrology } from './hydrology.js';
 import { computeTerrainMetrics } from './terrain-metrics.js';
 import { applyPlatePhysics, expandPlatePhysicsDebug } from './plate-physics.js';
 import { SUPER_PLATE_PHYSICS_MULT, DETAIL_NOISE_DAMPEN_STRENGTH } from './terrain-config.js';
@@ -192,6 +193,28 @@ function buildClimateFields(windResult, oceanResult, precipResult, tempResult) {
     };
 }
 
+function buildHydrologyFields(hydrologyResult) {
+    if (!hydrologyResult) return {};
+    return {
+        r_flow_receiver: hydrologyResult.r_flow_receiver,
+        r_catchment_cells: hydrologyResult.r_catchment_cells,
+        r_flow_accumulation_summer: hydrologyResult.r_flow_accumulation_summer,
+        r_flow_accumulation_winter: hydrologyResult.r_flow_accumulation_winter,
+        r_flow_accumulation_annual: hydrologyResult.r_flow_accumulation_annual,
+        r_river_strength: hydrologyResult.r_river_strength,
+        r_river_seasonality: hydrologyResult.r_river_seasonality,
+        r_lake_depth_km: hydrologyResult.r_lake_depth_km,
+        r_lake_id: hydrologyResult.r_lake_id,
+        lakeCount: hydrologyResult.lakeCount,
+    };
+}
+
+function addHydrologyDebugLayers(debugLayers, hydrologyResult) {
+    if (hydrologyResult?.debugLayers) {
+        Object.assign(debugLayers, hydrologyResult.debugLayers);
+    }
+}
+
 function handleGenerate(data) {
     const { N, P, jitter, nMag, numContinents, smoothing, hydraulicErosion, thermalErosion, ridgeSharpening, glacialErosion, terrainWarp, continentSizeVariety = 0, temperatureOffset = 0, precipitationOffset = 0, landCoverage = 0.3, seed: overrideSeed, toggledIndices, skipClimate } = data;
     const spread = 5;
@@ -333,6 +356,7 @@ function handleGenerate(data) {
         }
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
+        let hydrologyResult = null;
 
         if (!skipClimate) {
             progress(70, 'Simulating wind patterns\u2026');
@@ -374,6 +398,15 @@ function handleGenerate(data) {
             t0 = performance.now();
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
             timing.push({ stage: 'Köppen classification', ms: performance.now() - t0 });
+
+            progress(89, 'Routing rivers and lakes\u2026');
+            t0 = performance.now();
+            hydrologyResult = computeHydrology(
+                mesh, r_elevation,
+                precipResult.r_precip_summer, precipResult.r_precip_winter,
+            );
+            addHydrologyDebugLayers(debugLayers, hydrologyResult);
+            timing.push({ stage: 'Hydrology (drainage + accumulation)', ms: performance.now() - t0 });
         }
 
         progress(skipClimate ? 75 : 90, 'Computing triangle elevations\u2026');
@@ -449,6 +482,7 @@ function handleGenerate(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildHydrologyFields(hydrologyResult),
             skipClimate: !!skipClimate,
             seed, nMag,
             debugLayers,
@@ -498,7 +532,8 @@ function handleReapply(data) {
         W.r_elevation_final = new Float32Array(r_elevation);
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0;
+        let hydrologyResult = null;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0;
 
         if (!skipClimate) {
             progress(60, 'Simulating wind patterns\u2026');
@@ -521,6 +556,14 @@ function handleReapply(data) {
             tempResult = computeTemperature(W.mesh, W.r_xyz, r_elevation, windResult, oceanResult, precipResult, temperatureOffset);
             tTemp = performance.now() - t0;
 
+            progress(88, 'Routing rivers and lakes\u2026');
+            t0 = performance.now();
+            hydrologyResult = computeHydrology(
+                W.mesh, r_elevation,
+                precipResult.r_precip_summer, precipResult.r_precip_winter,
+            );
+            tHydrology = performance.now() - t0;
+
             W.cachedWind = windResult;
             W.cachedOcean = oceanResult;
         } else {
@@ -542,6 +585,7 @@ function handleReapply(data) {
             t_elevation,
             erosionDelta: dl_erosionDelta,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildHydrologyFields(hydrologyResult),
             windDebugLayers: windResult ? {
                 pressureSummer: windResult.r_pressure_summer,
                 pressureWinter: windResult.r_pressure_winter,
@@ -553,7 +597,8 @@ function handleReapply(data) {
                 rainShadowWinter: precipResult.r_rainshadow_winter,
                 tempSummer: tempResult.r_temperature_summer,
                 tempWinter: tempResult.r_temperature_winter,
-                koppen: classifyKoppen(W.mesh, r_elevation, tempResult, precipResult)
+                koppen: classifyKoppen(W.mesh, r_elevation, tempResult, precipResult),
+                ...hydrologyResult.debugLayers,
             } : null,
             _reapplyTiming: {
                 clone: tClone,
@@ -562,6 +607,7 @@ function handleReapply(data) {
                 ocean: tOcean,
                 precipitation: tPrecip,
                 temperature: tTemp,
+                hydrology: tHydrology,
                 triangleElevations: tTriElev,
                 workerTotal: tWorkerTotal
             },
@@ -622,7 +668,8 @@ function handleEditRecompute(data) {
         W.r_elevation_final = new Float32Array(r_elevation);
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0;
+        let hydrologyResult = null;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0;
 
         if (!skipClimate) {
             progress(65, 'Simulating wind patterns\u2026');
@@ -659,6 +706,15 @@ function handleEditRecompute(data) {
 
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
 
+            progress(89, 'Routing rivers and lakes\u2026');
+            t0 = performance.now();
+            hydrologyResult = computeHydrology(
+                mesh, r_elevation,
+                precipResult.r_precip_summer, precipResult.r_precip_winter,
+            );
+            tHydrology = performance.now() - t0;
+            addHydrologyDebugLayers(debugLayers, hydrologyResult);
+
             W.cachedWind = windResult;
             W.cachedOcean = oceanResult;
         } else {
@@ -693,6 +749,7 @@ function handleEditRecompute(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildHydrologyFields(hydrologyResult),
             debugLayers,
             _editTiming: {
                 elevation: tElev,
@@ -701,6 +758,7 @@ function handleEditRecompute(data) {
                 ocean: tOcean,
                 precipitation: tPrecip,
                 temperature: tTemp,
+                hydrology: tHydrology,
                 triangleElevations: tTriElev,
                 retainState: tRetain,
                 workerTotal: tWorkerTotal
@@ -762,6 +820,14 @@ function handleComputeClimate(data) {
         const koppen = classifyKoppen(mesh, r_elevation_final, tempResult, precipResult);
         const tKoppen = performance.now() - t0;
 
+        progress(92, 'Routing rivers and lakes\u2026');
+        t0 = performance.now();
+        const hydrologyResult = computeHydrology(
+            mesh, r_elevation_final,
+            precipResult.r_precip_summer, precipResult.r_precip_winter,
+        );
+        const tHydrology = performance.now() - t0;
+
         const tWorkerTotal = performance.now() - tTotal0;
 
         const climateDebugLayers = {
@@ -776,7 +842,8 @@ function handleComputeClimate(data) {
             rainShadowWinter: precipResult.r_rainshadow_winter,
             tempSummer: tempResult.r_temperature_summer,
             tempWinter: tempResult.r_temperature_winter,
-            koppen
+            koppen,
+            ...hydrologyResult.debugLayers,
         };
 
         progress(95, 'Done');
@@ -802,6 +869,7 @@ function handleComputeClimate(data) {
             r_precip_winter: precipResult.r_precip_winter,
             r_temperature_summer: tempResult.r_temperature_summer,
             r_temperature_winter: tempResult.r_temperature_winter,
+            ...buildHydrologyFields(hydrologyResult),
             climateDebugLayers,
             _climateTiming: {
                 wind: tWind,
@@ -809,6 +877,7 @@ function handleComputeClimate(data) {
                 precipitation: tPrecip,
                 temperature: tTemp,
                 koppen: tKoppen,
+                hydrology: tHydrology,
                 workerTotal: tWorkerTotal
             }
         });
@@ -977,6 +1046,7 @@ function handleImportHeightmap(data) {
         const nMag = 0;
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
+        let hydrologyResult = null;
 
         if (!skipClimate) {
             const noise = new SimplexNoise(seed);
@@ -1016,6 +1086,15 @@ function handleImportHeightmap(data) {
             t0 = performance.now();
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
             timing.push({ stage: 'Köppen classification', ms: performance.now() - t0 });
+
+            progress(91, 'Routing rivers and lakes\u2026');
+            t0 = performance.now();
+            hydrologyResult = computeHydrology(
+                mesh, r_elevation,
+                precipResult.r_precip_summer, precipResult.r_precip_winter,
+            );
+            addHydrologyDebugLayers(debugLayers, hydrologyResult);
+            timing.push({ stage: 'Hydrology (drainage + accumulation)', ms: performance.now() - t0 });
         }
 
         progress(skipClimate ? 75 : 92, 'Computing triangle elevations\u2026');
@@ -1061,6 +1140,7 @@ function handleImportHeightmap(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildHydrologyFields(hydrologyResult),
             skipClimate: !!skipClimate,
             seed, nMag,
             debugLayers,

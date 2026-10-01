@@ -202,7 +202,9 @@ const CLIMATE_LAYERS = new Set([
     'precipSummer', 'precipWinter',
     'rainShadowSummer', 'rainShadowWinter',
     'tempSummer', 'tempWinter',
-    'koppen', 'biome', 'continentality'
+    'koppen', 'biome', 'continentality',
+    'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
+    'riversAnnual', 'riverSeasonality', 'lakeDepth'
 ]);
 
 // Map tabs → tab-layer mapping
@@ -407,6 +409,18 @@ function updateLegend(layer) {
         // Rain shadow diverging legend: leeward shadow ↔ neutral ↔ windward boost
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,rgb(230,51,33) 0%,rgb(140,140,148) 50%,rgb(38,102,243) 100%)"></div>` +
             `<div class="legend-labels"><span>Rain Shadow</span><span>Neutral</span><span>Windward</span></div>`;
+    } else if (layer === 'flowAccumulationAnnual' || layer === 'flowAccumulationSummer' || layer === 'flowAccumulationWinter') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#e0dbbd 0%,#85e0d6 45%,#0d42fa 100%)"></div>` +
+            `<div class="legend-labels"><span>Local Runoff</span><span>Tributary</span><span>Major Flow</span></div>`;
+    } else if (layer === 'riversAnnual') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#d6d1b8 0%,#1a85d1 55%,#0a38fa 100%)"></div>` +
+            `<div class="legend-labels"><span>Land</span><span>River</span><span>Major River</span></div>`;
+    } else if (layer === 'riverSeasonality') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#0d59d1 0%,#4c4f59 50%,#eb4d0f 100%)"></div>` +
+            `<div class="legend-labels"><span>Winter-Dominant</span><span>Balanced</span><span>Summer-Dominant</span></div>`;
+    } else if (layer === 'lakeDepth') {
+        vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#d6d1b8 0%,#2094e0 50%,#0d3dfa 100%)"></div>` +
+            `<div class="legend-labels"><span>Land</span><span>Shallow Candidate</span><span>Deep Candidate</span></div>`;
     } else if (layer === 'landheightmap') {
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#000 0%,#fff 100%)"></div>` +
             `<div class="legend-labels"><span>Ocean / Sea Level</span><span>Peak</span></div>`;
