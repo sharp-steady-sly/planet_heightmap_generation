@@ -584,7 +584,7 @@ button#generate.generating {
 }
 #exportCard {
     position: relative;
-    max-width: 380px; width: 90%;
+    max-width: 430px; width: 90%;
     background: rgba(8,8,28,0.94); backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 12px;
@@ -604,9 +604,13 @@ button#generate.generating {
 }
 #exportClose:hover { color: #fff; }
 .export-actions {
-    display: flex; justify-content: flex-end; gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
     margin-top: 18px;
 }
+.export-actions button { min-height: 42px; padding: 8px 12px; }
+.export-actions .export-selected { grid-column: 1 / -1; }
+.export-actions #exportDataGo { grid-column: 1 / -1; }
+.export-actions .export-cancel { grid-column: 1 / -1; }
 
 /* Survey overlay */
 #surveyOverlay {

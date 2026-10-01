@@ -27,7 +27,9 @@ World Orogen generates realistic procedural planets shaped by tectonic plate sim
 
 - Multiple views: terrain, satellite biome, Köppen climate, heightmap
 - 26 detailed inspection layers (geology, atmosphere, ocean, climate)
-- Export high-resolution equirectangular maps up to 65,536px wide
+- Export every available map layer as an equirectangular PNG up to 65,536px wide
+- Export 16-bit full elevation, land elevation, and bathymetry plus land/ocean masks
+- Export per-region world data as CSV with JSON metadata
 - Shareable planet codes — copy a compact code to reproduce any planet exactly
 - Works on desktop and mobile browsers
 - No build step, no dependencies to install — pure ES modules

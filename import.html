@@ -226,16 +226,11 @@
     <div id="exportOverlay" class="hidden">
         <div id="exportCard">
             <button id="exportClose">&times;</button>
-            <h3>Export Map</h3>
+            <h3>Export World</h3>
             <div class="cg">
                 <label>Type</label>
                 <select id="exportType">
-                    <option value="color">Color Map</option>
-                    <option value="biome">Satellite</option>
-                    <option value="koppen">Climate (K&ouml;ppen)</option>
-                    <option value="heightmap">Heightmap (B&amp;W)</option>
-                    <option value="landheightmap">Land Heightmap (B&amp;W)</option>
-                    <option value="landmask">Land Mask (B&amp;W)</option>
+                    <option value="color">Terrain Color</option>
                 </select>
             </div>
             <div class="cg">
@@ -251,9 +246,11 @@
                 </select>
             </div>
             <div class="export-actions">
-                <button id="exportCancel" class="btn-ghost">Cancel</button>
-                <button id="exportGo" class="btn-primary">Export</button>
-                <button id="exportAllGo" class="btn-primary">Export All</button>
+                <button id="exportGo" class="btn-primary export-selected">Export Selected</button>
+                <button id="exportWorldbuildingGo" class="btn-ghost">Worldbuilding Atlas</button>
+                <button id="exportAllGo" class="btn-ghost">All Map Types</button>
+                <button id="exportDataGo" class="btn-ghost">Data CSV + JSON</button>
+                <button id="exportCancel" class="btn-ghost export-cancel">Cancel</button>
             </div>
         </div>
     </div>

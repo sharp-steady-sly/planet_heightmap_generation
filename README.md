@@ -40,7 +40,7 @@ All three are considered together; ties are broken in the order above.
 - **On-demand climate** — optional deferred climate computation; skip climate during generation for faster terrain iteration, compute it on demand when needed
 - **Detailed visualization** — twenty-six selectable inspection layers organized by category (Geology, Atmosphere, Ocean, Climate, Elevation) for viewing each component in isolation. Wind/pressure layers show directional wind arrows, ocean current layers show current arrows colored by heat transport, on both globe and map views. Precipitation layers use a brown→green→blue ramp showing dry to wet regions.
 - **Heightmap import** — bring your own equirectangular B&W heightmap (Earth, Mars, hand-drawn maps) onto a 3D globe. Black pixels become ocean, brighter pixels become higher land. The import page (`/import`) runs full climate simulation (wind, precipitation, temperature, K&ouml;ppen) on your imported terrain, with optional terrain sculpting (smoothing, erosion, ridge sharpening). Supported formats: PNG, JPEG, WebP.
-- **Map export** — download high-resolution equirectangular PNGs (color terrain, satellite biome, climate/Köppen, B&W heightmap, land-only heightmap, or B&W land mask) at configurable widths up to 65536px with tiled rendering. **Export All** downloads Satellite, Climate, Heightmap, and Land Mask in one click, auto-computing climate if needed.
+- **Map and data export** — download any available Inspect layer as a high-resolution equirectangular PNG at configurable widths up to 65536px. Elevation products include full land-and-ocean height, land-only height, a 16-bit bathymetry raster, and inverse land/ocean masks. Batch exports produce either a curated worldbuilding atlas or every available map type; CSV and JSON exports preserve per-region climate, circulation, elevation, plate, and erosion values.
 
 ## Quick Start
 
@@ -123,7 +123,7 @@ Climate simulation (wind, ocean currents, precipitation, temperature, Köppen cl
   - **Terrain** — elevation color ramp from deep ocean through sea level to mountain peaks
   - **Satellite** — realistic biome colors based on Köppen climate classification and elevation (lush green rainforests, tan deserts, white ice caps, dark taiga, gray tundra), with ocean using the standard terrain palette. High elevations blend toward snow white based on climate-aware snow lines.
   - **Climate** — Köppen-Geiger classification with color swatches for all 30 climate types
-  - **Heightmap** — black-to-white gradient on a fixed absolute scale (-5 km ocean floor to 6 km peaks), so the same physical height always maps to the same shade
+  - **Heightmap** — black-to-white gradient on a fixed absolute scale (-10 km ocean floor to 6 km peaks), so the same physical height always maps to the same shade
 - **View** dropdown — switch between Globe and Map (equirectangular projection)
 - **Center Longitude** slider (map mode only) — shifts the map projection's central meridian to any longitude from 180°W to 180°E, scrolling the equirectangular projection so the chosen longitude is centered. Exports are unaffected (always centered on 0°).
 - **Wireframe** — toggle switch to show Voronoi cell edges as a wireframe overlay
@@ -147,10 +147,13 @@ The **Inspect** dropdown (in Visual Options, below the map tabs) selects a detai
 
 Click **Export Map** (below Visual Options) to open the export modal:
 
-- **Type** — Color Map (terrain colors), Satellite (biome colors from Köppen classification), Climate (Köppen classification colors), Heightmap (B&W full range on fixed -5 to 6 km absolute scale), Land Heightmap (B&W on fixed 0 to 6 km absolute scale, ocean is black), or Land Mask (pure B&W — white = land, black = ocean). Satellite and Climate options are disabled when climate hasn't been computed.
+- **Type** — choose any available core, elevation, mask, geology, atmosphere, ocean, climate, or plate-physics layer. Climate is computed on demand when the selected layer needs it.
 - **Width** slider — 1024 to 65536 pixels (height is always width/2 for equirectangular). Large exports use tiled rendering to handle GPU texture limits.
-- **Export** — downloads the selected type as an equirectangular PNG with no grid overlay
-- **Export All** — downloads four maps (Satellite, Climate, Land Heightmap, Land Mask) sequentially. If climate hasn't been computed yet, it runs automatically before exporting.
+- **Export Selected** — downloads the selected type as an equirectangular PNG with no grid overlay. Wind, pressure, and current maps retain their direction arrows.
+- **Worldbuilding Atlas** — downloads the principal terrain, tectonic, elevation, mask, seasonal weather, ocean-current, climate, and erosion maps.
+- **All Map Types** — downloads every map backed by the current generated or imported world.
+- **Data CSV + JSON** — downloads one CSV row per mesh region plus a metadata file documenting units, approximations, coordinate conventions, and 16-bit elevation encodings.
+- **Bathymetry encoding** — ocean pixels 0–65534 map linearly from -10000 m to 0 m; 65535 is reserved for land/no-data. The full heightmap maps 0–65535 from -10000 m to +6000 m.
 - A progress overlay shows rendering and PNG encoding status during export
 
 ### Sidebar & Loading
