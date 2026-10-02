@@ -8,6 +8,7 @@ import { state } from './state.js';
 import { updateHoverHighlight, updateMapHoverHighlight, updatePendingHighlight, updateMapPendingHighlight } from './planet-mesh.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { elevToHeightKm } from './color-map.js';
+import { TERRAIN_CLASSES } from './terrain-analysis.js';
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -116,8 +117,25 @@ function buildHoverHTML(region, plate) {
 
     // Elevation
     const elev = d.r_elevation[region];
-    const elevKm = elevToHeightKm(elev).toFixed(1);
-    lines.push(`<span class="hi-label">Elev</span> ${elevKm} km`);
+    const elevM = Math.round(elevToHeightKm(elev) * 1000);
+    lines.push(`<span class="hi-label">Elev</span> ${elevM.toLocaleString()} m`);
+
+    if (elev > 0 && d.r_terrain_class) {
+        const terrainClass = TERRAIN_CLASSES[d.r_terrain_class[region]];
+        const slope = d.r_regional_slope_m_per_km?.[region];
+        const relief = d.r_local_relief_m?.[region];
+        if (terrainClass) lines.push(`<span class="hi-label">Terrain</span> ${terrainClass.name}`);
+        if (Number.isFinite(slope)) lines.push(`<span class="hi-label">Slope</span> ${Math.round(slope).toLocaleString()} m/km`);
+        if (Number.isFinite(relief)) {
+            const radius = Math.round(d.terrainReliefRadiusKm || 200);
+            lines.push(`<span class="hi-label">Relief</span> ${Math.round(relief).toLocaleString()} m / ~${radius.toLocaleString()} km`);
+        }
+        const peakRank = d.r_peak_rank?.[region];
+        if (peakRank > 0) {
+            const prominence = Math.round(d.r_peak_prominence_m?.[region] || 0);
+            lines.push(`<span class="hi-label">Peak</span> #${peakRank} \u00b7 ${prominence.toLocaleString()} m prominence proxy`);
+        }
+    }
 
     // Lat/Lon from r_xyz
     const x = d.r_xyz[3 * region];

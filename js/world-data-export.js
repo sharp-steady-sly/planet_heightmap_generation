@@ -5,6 +5,7 @@ import { elevToHeightKm } from './color-map.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { ELEVATION_ENCODING, EXPORT_LAYER_DEFINITIONS, exportLayerHasData } from './export-layers.js';
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
+import { TERRAIN_CLASSES } from './terrain-analysis.js';
 
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -48,6 +49,8 @@ export async function exportWorldData(onProgress) {
     const n = mesh.numRegions;
     const headers = [
         'region_id', 'latitude_deg', 'longitude_deg', 'elevation_m', 'surface',
+        'terrain_class_id', 'terrain_class_name', 'regional_slope_m_per_km',
+        'local_relief_m', 'relief_radius_km', 'major_peak_rank', 'peak_prominence_proxy_m',
         'plate_id', 'plate_crust', 'koppen_id', 'koppen_code', 'koppen_name',
         'surface_lithology_id', 'surface_lithology_code', 'surface_lithology_name',
         'basement_age_ma', 'surface_unit_age_ma',
@@ -83,6 +86,8 @@ export async function exportWorldData(onProgress) {
         const y = r_xyz[r * 3 + 1];
         const z = r_xyz[r * 3 + 2];
         const elevation = r_elevation[r];
+        const terrainClassId = data.r_terrain_class?.[r];
+        const terrainClass = Number.isInteger(terrainClassId) ? TERRAIN_CLASSES[terrainClassId] : null;
         const plate = r_plate?.[r];
         const koppenId = debugLayers.koppen?.[r];
         const koppen = Number.isInteger(koppenId) ? KOPPEN_CLASSES[koppenId] : null;
@@ -115,6 +120,13 @@ export async function exportWorldData(onProgress) {
             finite(Math.atan2(x, z) * RAD_TO_DEG),
             finite(elevToHeightKm(elevation) * 1000, 2),
             elevation > 0 ? 'land' : 'ocean',
+            Number.isFinite(terrainClassId) ? terrainClassId : '',
+            terrainClass?.name || '',
+            finite(data.r_regional_slope_m_per_km?.[r], 2),
+            finite(data.r_local_relief_m?.[r], 2),
+            finite(data.terrainReliefRadiusKm, 2),
+            data.r_peak_rank?.[r] > 0 ? data.r_peak_rank[r] : '',
+            data.r_peak_rank?.[r] > 0 ? finite(data.r_peak_prominence_m?.[r], 2) : '',
             Number.isFinite(plate) ? plate : '',
             Number.isFinite(plate) && plateIsOcean
                 ? (plateIsOcean.has(plate) ? 'oceanic' : 'continental')
@@ -189,7 +201,7 @@ export async function exportWorldData(onProgress) {
     downloadBlob(new Blob(chunks, { type: 'text/csv;charset=utf-8' }), `orogen-world-data-${code}.csv`);
 
     const metadata = {
-        schemaVersion: 4,
+        schemaVersion: 5,
         generator: 'World Orogen',
         exportedAt: new Date().toISOString(),
         planetCode: code,
@@ -216,6 +228,7 @@ export async function exportWorldData(onProgress) {
             hydrology: 'Flow accumulation is relative precipitation-weighted runoff on a depression-conditioned drainage graph. Lake candidates are terrain depressions at least 25 m below their spill surface; neither product includes calibrated evaporation, infiltration, dams, or channel hydraulics.',
             geology: 'Lithology, ages, intrusions, metamorphism, and sediment thickness are deterministic regional inferences from generated tectonic settings. They are not a stratigraphic or geodynamic forward model.',
             metals: 'Metal values are relative favorability for broad deposit-forming environments, not deposits, reserves, grades, or guarantees. Placer favorability routes eroding source potential through the generated drainage network.',
+            terrainAnalysis: 'Elevation is in physical metres. Regional slope and local relief describe the irregular world mesh at continental-to-regional scale, not survey-grade local terrain. Peak prominence is a neighborhood-range proxy, not formal topographic prominence.',
             geometry: 'Rows represent irregular spherical mesh regions, not raster pixels.',
         },
         classificationCatalogs: {
@@ -224,7 +237,10 @@ export async function exportWorldData(onProgress) {
             metalProvinces: METAL_PROVINCES.map(({ code, name, color, metals, otherResources }) => ({
                 code, name, color, metals, otherResources: otherResources || [],
             })),
+            terrainClasses: TERRAIN_CLASSES.map(({ code, name }) => ({ code, name })),
         },
+        majorPeaks: data.majorPeaks || [],
+        terrainBandStats: data.terrainBandStats || [],
         availableRasterLayers: EXPORT_LAYER_DEFINITIONS
             .filter(def => (!state.importedHeightmap || def.importSupported) && exportLayerHasData(def, data))
             .map(def => ({ id: def.id, label: def.label, filename: def.filename, unit: def.unit, description: def.description })),

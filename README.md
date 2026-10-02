@@ -143,6 +143,7 @@ The **Inspect** dropdown (in Visual Options, below the map tabs) selects a detai
 - **Atmosphere** — Pressure Summer/Winter (blue = low, red = high), Wind Speed Summer/Winter (with directional arrows on both globe and map)
 - **Ocean** — Currents Summer/Winter (red = warm poleward, blue = cold equatorward, black = zonal; with directional current arrows)
 - **Climate** — Precipitation Summer/Winter (brown = dry, green = moderate, blue = wet), Rain Shadow Summer/Winter (diverging blue = windward orographic boost, gray = neutral, red-brown = leeward rain shadow; leeward effects are seeded at downslope faces scaled by mountain height, then propagated ~1500 km downwind to show extended shadow zones like the foehn drying effect), Temperature Summer/Winter (purple-blue = cold, white = 0 C, green-yellow = warm, red = hot; fixed -45 to +45 C range), Continentality (blue = ocean, green = coast, yellow = moderate interior, orange/red = deep continental interior)
+- **Terrain Analysis** — Topographic Relief combines fixed metre-based elevation bands, regional hillshade, 500 m contours, and major summits. Elevation Bands isolates physical altitude; Regional Steepness reports broad gradient in metres per kilometre; Local Relief measures the highest-to-lowest land within an approximately 200 km neighborhood; Major Peaks ranks up to 50 separated regional summits. Hover a terrain legend category to isolate it on the map. Elevated plateaus are land at least 1,000 m high with under 500 m of local relief and under 25 m/km regional gradient. These describe continental-to-regional terrain, not survey-scale local topography.
 - **Elevation** — Full Heightmap (full-range B&W)
 
 ### Export
@@ -261,6 +262,7 @@ js/
   ocean-land.js         Ocean/land assignment with continent seeding
   elevation.js          Collisions, stress propagation, distance fields, elevation
   terrain-post.js       Domain warping, bilateral smoothing, glacial/hydraulic/thermal erosion, ridge sharpening, soil creep
+  terrain-analysis.js   Physical elevation bands, regional steepness, local relief, contours, and ranked summits
   climate-config.js     Climate simulation tunable parameters (mutable at runtime for the tuning suite)
   climate-util.js       Shared climate utilities — smoothing, ITCZ lookup, percentile selection
   wind.js               Seasonal wind simulation — pressure fields, ITCZ tracking, Coriolis wind

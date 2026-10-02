@@ -8,6 +8,10 @@ import { makeRng } from './rng.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { ELEVATION_ENCODING, getExportLayerDefinition, exportLayerHasData } from './export-layers.js';
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
+import {
+    elevationBandColor, regionalSlopeColor, localReliefColor,
+    topographicColor, majorPeaksColor,
+} from './terrain-analysis.js';
 
 // Clipping planes for map wrap — keep everything within x ∈ [-2, 2]
 renderer.localClippingEnabled = true;
@@ -215,6 +219,32 @@ const HYDROLOGY_LAYERS = new Set([
     'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
     'riversAnnual', 'riverSeasonality', 'lakeDepth',
 ]);
+
+const TERRAIN_ANALYSIS_LAYERS = new Set([
+    'topographicRelief', 'elevationBands', 'regionalSlope', 'localRelief', 'majorPeaks',
+]);
+
+function terrainAnalysisColor(layer, region, elevation, data) {
+    switch (layer) {
+        case 'topographicRelief':
+            return topographicColor(
+                elevation,
+                data.r_hillshade?.[region],
+                data.r_contour_class?.[region],
+                data.r_peak_marker_rank?.[region],
+            );
+        case 'elevationBands':
+            return elevationBandColor(elevation);
+        case 'regionalSlope':
+            return regionalSlopeColor(data.r_regional_slope_m_per_km?.[region], elevation);
+        case 'localRelief':
+            return localReliefColor(data.r_local_relief_m?.[region], elevation);
+        case 'majorPeaks':
+            return majorPeaksColor(data.r_peak_marker_rank?.[region], elevation);
+        default:
+            return elevationToColor(elevation);
+    }
+}
 
 function hydrologyColor(layer, value, elevation, riverStrength = 0) {
     if (elevation <= 0) return [0.06, 0.14, 0.24];
@@ -469,7 +499,8 @@ export function buildMapMesh() {
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -540,6 +571,8 @@ export function buildMapMesh() {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
             } else if (isGeology && geologyArr) {
                 [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
+            } else if (isTerrainAnalysis) {
+                [cr, cg, cb] = terrainAnalysisColor(debugLayer, br, r_elevation[br], state.curData);
             } else if (dbgArr) {
                 [cr, cg, cb] = debugValueToColor(dbgArr[br], dbgMin, dbgMax);
             } else if (showPlates) {
@@ -913,7 +946,8 @@ export function buildMesh() {
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1014,6 +1048,8 @@ export function buildMesh() {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
             } else if (isGeology && geologyArr) {
                 [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
+            } else if (isTerrainAnalysis) {
+                [cr, cg, cb] = terrainAnalysisColor(debugLayer, br, r_elevation[br], state.curData);
             } else if (isLandHeightmap) {
                 [cr, cg, cb] = landHeightmapColor(r_elevation[br]);
             } else if (isHeightmap) {
@@ -1162,7 +1198,8 @@ export function updateMeshColors() {
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1186,6 +1223,7 @@ export function updateMeshColors() {
         if (isOceanCurrent) return [0.5, 0, 0.5];
         if (isHydrology && hydrologyArr) return hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
         if (isGeology && geologyArr) return geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
+        if (isTerrainAnalysis) return terrainAnalysisColor(debugLayer, br, r_elevation[br], state.curData);
         if (isLandHeightmap) return landHeightmapColor(r_elevation[br]);
         if (isHeightmap) return heightmapColor(r_elevation[br]);
         if (dbgArr) return debugValueToColor(dbgArr[br], dbgMin, dbgMax);
@@ -2166,6 +2204,7 @@ function createExportLayerContext(type) {
         'continentality', 'tempContinentality',
         'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
         'riversAnnual', 'riverSeasonality', 'lakeDepth',
+        ...TERRAIN_ANALYSIS_LAYERS,
         ...REGIONAL_GEOLOGY_LAYERS,
         ...METAL_POTENTIAL_LAYERS,
     ]);
@@ -2185,6 +2224,9 @@ function createExportLayerContext(type) {
         const elevation = r_elevation[r];
         if (REGIONAL_GEOLOGY_LAYERS.has(type) || METAL_POTENTIAL_LAYERS.has(type)) {
             return geologyColor(type, debugLayers[type][r], elevation, r, data);
+        }
+        if (TERRAIN_ANALYSIS_LAYERS.has(type)) {
+            return terrainAnalysisColor(type, r, elevation, data);
         }
         switch (type) {
             case 'color':

@@ -110,8 +110,20 @@ const GEOLOGY_FIELD_KEYS = [
     'r_metal_sedimentary', 'r_metal_placer',
 ];
 
+const TERRAIN_ANALYSIS_FIELD_KEYS = [
+    'r_elevation_m', 'r_regional_slope_m_per_km', 'r_local_relief_m',
+    'r_hillshade', 'r_contour_class', 'r_terrain_class',
+    'r_elevation_band', 'r_slope_class', 'r_relief_class',
+    'r_peak_rank', 'r_peak_marker_rank', 'r_peak_group',
+    'r_peak_prominence_m', 'majorPeaks', 'terrainReliefRadiusKm', 'terrainBandStats',
+];
+
 function assignGeologyFields(target, source) {
     for (const key of GEOLOGY_FIELD_KEYS) target[key] = source[key] ?? null;
+}
+
+function assignTerrainAnalysisFields(target, source) {
+    for (const key of TERRAIN_ANALYSIS_FIELD_KEYS) target[key] = source[key] ?? null;
 }
 
 // Reconstruct SphereMesh from transferred data
@@ -279,6 +291,7 @@ if (worker) {
                 };
                 assignHydrologyFields(state.curData, msg);
                 assignGeologyFields(state.curData, msg);
+                assignTerrainAnalysisFields(state.curData, msg);
                 console.log(
                     `[World Orogen] Hydrology: ${state.curData.r_flow_receiver?.length || 0} routed regions, ` +
                     `${state.curData.lakeCount || 0} lake candidates, ` +
@@ -475,6 +488,10 @@ if (worker) {
                 }
                 assignHydrologyFields(d, msg);
                 assignGeologyFields(d, msg);
+                assignTerrainAnalysisFields(d, msg);
+                if (msg.terrainDebugLayers) {
+                    Object.assign(d.debugLayers, msg.terrainDebugLayers);
+                }
                 if (msg.geologyDebugLayers) {
                     Object.assign(d.debugLayers, msg.geologyDebugLayers);
                 }
@@ -604,6 +621,7 @@ if (worker) {
                 }
                 assignHydrologyFields(d, msg);
                 assignGeologyFields(d, msg);
+                assignTerrainAnalysisFields(d, msg);
                 d.debugLayers = msg.debugLayers;
                 // Fallback: compute precip/temp on main thread if climate was
                 // requested but data is missing (e.g. partial worker result)

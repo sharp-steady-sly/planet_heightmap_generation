@@ -36,6 +36,26 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         filename: 'climate', requiresClimate: true, worldbuilding: true,
         unit: 'class', description: 'Categorical Koppen climate classification.',
     }),
+    layer('topographicRelief', 'Topographic Relief', 'Terrain Analysis', {
+        filename: 'topographic-relief', worldbuilding: true, unit: 'metres + shaded relief',
+        description: 'Fixed elevation bands with regional hillshade, 500 metre contours, and major summits.',
+    }),
+    layer('elevationBands', 'Elevation Bands', 'Terrain Analysis', {
+        filename: 'elevation-bands', worldbuilding: true, unit: 'metre band',
+        description: 'Fixed physical elevation categories from sea level through the highest terrain.',
+    }),
+    layer('regionalSlope', 'Regional Steepness', 'Terrain Analysis', {
+        filename: 'regional-steepness', worldbuilding: true, unit: 'metres per kilometre',
+        description: 'Broad terrain gradient measured across neighboring world-map cells.',
+    }),
+    layer('localRelief', 'Local Relief', 'Terrain Analysis', {
+        filename: 'local-relief', worldbuilding: true, unit: 'metres within regional window',
+        description: 'Elevation range within an approximately 200 kilometre neighborhood.',
+    }),
+    layer('majorPeaks', 'Major Peaks', 'Terrain Analysis', {
+        filename: 'major-peaks', worldbuilding: true, unit: 'rank',
+        description: 'Up to 50 separated regional summits ranked by physical elevation.',
+    }),
     layer('heightmap', 'Full Elevation (Land + Ocean, 16-bit)', 'Elevation', {
         filename: 'full-heightmap', worldbuilding: true, unit: 'metres',
         description: 'Fixed -10 km to +6 km elevation encoding, including bathymetry.',

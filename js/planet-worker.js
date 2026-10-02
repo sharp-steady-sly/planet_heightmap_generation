@@ -17,6 +17,7 @@ import { classifyKoppen } from './koppen.js';
 import { computeHydrology } from './hydrology.js';
 import { computeRegionalGeology } from './geology.js';
 import { computeTerrainMetrics } from './terrain-metrics.js';
+import { computeTerrainAnalysis } from './terrain-analysis.js';
 import { applyPlatePhysics, expandPlatePhysicsDebug } from './plate-physics.js';
 import { SUPER_PLATE_PHYSICS_MULT, DETAIL_NOISE_DAMPEN_STRENGTH } from './terrain-config.js';
 import Delaunator from 'https://cdn.jsdelivr.net/npm/delaunator@5.0.1/+esm';
@@ -222,6 +223,16 @@ function buildGeologyFields(geologyResult) {
     return fields;
 }
 
+function buildTerrainAnalysisFields(terrainAnalysis) {
+    if (!terrainAnalysis) return {};
+    const { debugLayers, ...fields } = terrainAnalysis;
+    return fields;
+}
+
+function addTerrainAnalysisDebugLayers(debugLayers, terrainAnalysis) {
+    if (terrainAnalysis?.debugLayers) Object.assign(debugLayers, terrainAnalysis.debugLayers);
+}
+
 function computeGeology(mesh, r_xyz, r_elevation, seed, debugLayers, r_stress, precipResult, hydrologyResult) {
     return computeRegionalGeology(mesh, r_xyz, r_elevation, {
         seed,
@@ -360,6 +371,12 @@ function handleGenerate(data) {
         const { dl_erosionDelta, postTiming } = runPostProcessing(mesh, r_xyz, r_elevation, { smoothing, glacialErosion, hydraulicErosion, thermalErosion, ridgeSharpening, terrainWarp }, neighborDist, seed, debugLayers.hotspot, r_dampen, r_orogenic);
         timing.push({ stage: 'Terrain post-processing (total)', ms: performance.now() - t0 });
         debugLayers.erosionDelta = dl_erosionDelta;
+
+        progress(66, 'Analyzing regional terrain\u2026');
+        t0 = performance.now();
+        const terrainAnalysis = computeTerrainAnalysis(mesh, r_xyz, r_elevation, neighborDist);
+        addTerrainAnalysisDebugLayers(debugLayers, terrainAnalysis);
+        timing.push({ stage: 'Terrain analysis (elevation + relief + peaks)', ms: performance.now() - t0 });
 
         // Expand plate physics diagnostics to hi-res mesh
         {
@@ -517,6 +534,7 @@ function handleGenerate(data) {
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
+            ...buildTerrainAnalysisFields(terrainAnalysis),
             skipClimate: !!skipClimate,
             seed, nMag,
             debugLayers,
@@ -561,6 +579,9 @@ function handleReapply(data) {
         t0 = performance.now();
         const { dl_erosionDelta, postTiming } = runPostProcessing(W.mesh, W.r_xyz, r_elevation, data, W.neighborDist, W.seed, undefined, W.r_dampen, W.r_orogenic);
         const tPost = performance.now() - t0;
+
+        progress(45, 'Analyzing regional terrain\u2026');
+        const terrainAnalysis = computeTerrainAnalysis(W.mesh, W.r_xyz, r_elevation, W.neighborDist);
 
         // Update retained final elevation for deferred climate
         W.r_elevation_final = new Float32Array(r_elevation);
@@ -637,6 +658,8 @@ function handleReapply(data) {
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
+            ...buildTerrainAnalysisFields(terrainAnalysis),
+            terrainDebugLayers: terrainAnalysis.debugLayers,
             geologyDebugLayers: geologyResult?.debugLayers || null,
             windDebugLayers: windResult ? {
                 pressureSummer: windResult.r_pressure_summer,
@@ -717,6 +740,10 @@ function handleEditRecompute(data) {
         const tPost = performance.now() - t0;
         debugLayers.erosionDelta = dl_erosionDelta;
         const tectonicDebugLayers = { ...debugLayers };
+
+        progress(58, 'Analyzing regional terrain\u2026');
+        const terrainAnalysis = computeTerrainAnalysis(mesh, r_xyz, r_elevation, W.neighborDist);
+        addTerrainAnalysisDebugLayers(debugLayers, terrainAnalysis);
 
         // Update retained final elevation for deferred climate
         W.r_elevation_final = new Float32Array(r_elevation);
@@ -815,6 +842,7 @@ function handleEditRecompute(data) {
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
+            ...buildTerrainAnalysisFields(terrainAnalysis),
             debugLayers,
             _editTiming: {
                 elevation: tElev,
@@ -1122,6 +1150,12 @@ function handleImportHeightmap(data) {
         const debugLayers = { erosionDelta: dl_erosionDelta };
         const nMag = 0;
 
+        progress(55, 'Analyzing regional terrain\u2026');
+        t0 = performance.now();
+        const terrainAnalysis = computeTerrainAnalysis(mesh, r_xyz, r_elevation, neighborDist);
+        addTerrainAnalysisDebugLayers(debugLayers, terrainAnalysis);
+        timing.push({ stage: 'Terrain analysis (elevation + relief + peaks)', ms: performance.now() - t0 });
+
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
         let hydrologyResult = null;
 
@@ -1218,6 +1252,7 @@ function handleImportHeightmap(data) {
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
             ...buildHydrologyFields(hydrologyResult),
+            ...buildTerrainAnalysisFields(terrainAnalysis),
             skipClimate: !!skipClimate,
             seed, nMag,
             debugLayers,

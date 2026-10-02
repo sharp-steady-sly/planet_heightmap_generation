@@ -7,11 +7,12 @@ import { renderer, scene, camera, ctrl, waterMesh, atmosMesh, starsMesh,
          tickZoom, tickMapZoom } from './scene.js';
 import { state } from './state.js';
 import { importHeightmap, reapplyViaWorker, computeClimateViaWorker } from './generate.js';
-import { buildMesh, updateMeshColors, buildMapMesh, rebuildGrids, buildWindArrows, buildOceanCurrentArrows, updateKoppenHoverHighlight, updateMapKoppenHoverHighlight } from './planet-mesh.js';
+import { buildMesh, updateMeshColors, buildMapMesh, rebuildGrids, buildWindArrows, buildOceanCurrentArrows, updateKoppenHoverHighlight, updateMapKoppenHoverHighlight, updateCategoricalHoverHighlight, updateMapCategoricalHoverHighlight } from './planet-mesh.js';
 import { detailFromSlider } from './detail-scale.js';
 import { KOPPEN_CLASSES } from './koppen.js';
 import { elevationToColor } from './color-map.js';
 import { initExportUI } from './export-ui.js';
+import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
 
 // ─── File Upload ──────────────────────────────────────────────────
 
@@ -306,6 +307,8 @@ function switchVisualization(layer) {
 function applyLayer(layer) {
     state.debugLayer = layer;
     state.hoveredKoppen = -1;
+    state.hoveredCategoryField = '';
+    state.hoveredCategoryId = -1;
     updateMeshColors();
     const isWindLayer = layer === 'pressureSummer' || layer === 'pressureWinter' ||
                         layer === 'windSpeedSummer' || layer === 'windSpeedWinter';
@@ -398,6 +401,60 @@ const KOPPEN_DESCRIPTIONS = {
     EF:  'Ice cap \u2014 Permanent ice, never above 0\u00b0C.',
 };
 
+function staticLegend(entries, field = '') {
+    const items = entries.map((entry, classId) => {
+        const [r, g, b] = entry.color;
+        const color = `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
+        const dataClass = field ? ` data-class-id="${classId}"` : '';
+        return `<div class="legend-categorical-item"${dataClass}><span class="legend-categorical-swatch" style="background:${color}"></span>` +
+            `<div class="legend-categorical-title">${entry.name}</div></div>`;
+    }).join('');
+    return `<div class="legend-categorical compact${field ? '' : ' legend-static'}">${items}</div>`;
+}
+
+function wireCategoricalLegendHover(field) {
+    vizLegend.querySelectorAll('.legend-categorical-item[data-class-id]').forEach(item => {
+        item.addEventListener('mouseenter', () => {
+            state.hoveredCategoryField = field;
+            state.hoveredCategoryId = Number(item.dataset.classId);
+            item.classList.add('active');
+            updateCategoricalHoverHighlight();
+            updateMapCategoricalHoverHighlight();
+        });
+        item.addEventListener('mouseleave', () => {
+            state.hoveredCategoryField = '';
+            state.hoveredCategoryId = -1;
+            item.classList.remove('active');
+            updateCategoricalHoverHighlight();
+            updateMapCategoricalHoverHighlight();
+        });
+    });
+}
+
+function peakLegend() {
+    const groups = [
+        { name: 'Highest peak', color: [0.92, 0.08, 0.10] },
+        { name: 'Ranks 2-5', color: [0.98, 0.42, 0.08] },
+        { name: 'Ranks 6-20', color: [0.98, 0.82, 0.12] },
+        { name: 'Ranks 21-50', color: [0.64, 0.28, 0.76] },
+    ];
+    const rows = (state.curData?.majorPeaks || []).slice(0, 5).map(peak => {
+        const lat = `${Math.abs(peak.latitudeDeg).toFixed(1)}\u00b0${peak.latitudeDeg < 0 ? 'S' : 'N'}`;
+        const lon = `${Math.abs(peak.longitudeDeg).toFixed(1)}\u00b0${peak.longitudeDeg < 0 ? 'W' : 'E'}`;
+        return `#${peak.rank} ${peak.elevationM.toLocaleString()} m \u00b7 ${lat}, ${lon}`;
+    }).join('<br>');
+    return staticLegend(groups, 'r_peak_group') + (rows ? `<div class="legend-association"><strong>Highest summits:</strong><br>${rows}</div>` : '');
+}
+
+function highPlateauSummary() {
+    const stat = state.curData?.terrainBandStats?.[7];
+    if (!stat || stat.regionCount === 0) return '';
+    return `<div class="legend-association"><strong>3,000-4,000 m:</strong> ${stat.percentOfLand.toFixed(1)}% of land; ` +
+        `${stat.plateauPercent.toFixed(1)}% classed as low-relief plateau; ` +
+        `${Math.round(stat.meanReliefM).toLocaleString()} m average local relief; ` +
+        `${stat.meanSlopeMPerKm.toFixed(1)} m/km average regional gradient.</div>`;
+}
+
 function updateLegend(layer) {
     if (!vizLegend) return;
     if (layer === '' || !layer) {
@@ -413,6 +470,26 @@ function updateLegend(layer) {
         const gradStr = colors.map((c, i) => `${c} ${pcts[i]}%`).join(', ');
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,${gradStr})"></div>` +
             `<div class="legend-labels"><span>Deep Ocean</span><span>Sea Level</span><span>Peak</span></div>`;
+    } else if (layer === 'topographicRelief') {
+        vizLegend.innerHTML = staticLegend(ELEVATION_BANDS, 'r_elevation_band') +
+            '<div class="legend-association">500 m contours \u00b7 heavier 1,000 m contours \u00b7 top 20 summits marked</div>' +
+            highPlateauSummary();
+        wireCategoricalLegendHover('r_elevation_band');
+    } else if (layer === 'elevationBands') {
+        vizLegend.innerHTML = staticLegend(ELEVATION_BANDS, 'r_elevation_band') + highPlateauSummary();
+        wireCategoricalLegendHover('r_elevation_band');
+    } else if (layer === 'regionalSlope') {
+        vizLegend.innerHTML = staticLegend(SLOPE_LEGEND, 'r_slope_class') +
+            '<div class="legend-association">Broad gradient in metres climbed per horizontal kilometre.</div>';
+        wireCategoricalLegendHover('r_slope_class');
+    } else if (layer === 'localRelief') {
+        const radius = Math.round(state.curData?.terrainReliefRadiusKm || 200);
+        vizLegend.innerHTML = staticLegend(RELIEF_LEGEND, 'r_relief_class') +
+            `<div class="legend-association">Highest minus lowest land within roughly ${radius.toLocaleString()} km.</div>`;
+        wireCategoricalLegendHover('r_relief_class');
+    } else if (layer === 'majorPeaks') {
+        vizLegend.innerHTML = peakLegend();
+        wireCategoricalLegendHover('r_peak_group');
     } else if (layer === 'koppen') {
         let html = '<div class="legend-koppen-header"><a href="https://en.wikipedia.org/wiki/K%C3%B6ppen_climate_classification" target="_blank" rel="noopener">K\u00f6ppen climate classification</a></div>';
         html += '<div class="legend-koppen">';
