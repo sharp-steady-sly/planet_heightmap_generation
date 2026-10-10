@@ -13,6 +13,7 @@ import {
     topographicColor, majorPeaksColor,
 } from './terrain-analysis.js';
 import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
+import { buildExportFilename, currentMapCode } from './export-filenames.js';
 
 // Clipping planes for map wrap — keep everything within x ∈ [-2, 2]
 renderer.localClippingEnabled = true;
@@ -2702,7 +2703,7 @@ export async function exportMap(type, width, onProgress) {
     if (onProgress) onProgress(85, 'Encoding PNG...');
     await new Promise(r => setTimeout(r, 0));
 
-    const code = location.hash.replace(/^#/, '').trim() || (state.curData ? state.curData.seed : '');
+    const code = currentMapCode(state.curData);
     const filename = exportFilename(type, code);
 
     if (is16Bit) {
@@ -2736,7 +2737,7 @@ export async function exportMap(type, width, onProgress) {
 function exportFilename(type, seed) {
     const def = getExportLayerDefinition(type);
     const stem = def?.filename || type.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    return `orogen-${stem}-${seed}.png`;
+    return buildExportFilename(stem, 'png', { seed });
 }
 
 // Batch export — builds geometry once, recolors per type. Avoids GPU memory
@@ -2831,7 +2832,7 @@ export async function exportMapBatch(types, width, onProgress) {
     const tilesY = Math.ceil(height / tileH);
     const totalTiles = tilesX * tilesY;
 
-    const code = location.hash.replace(/^#/, '').trim() || (state.curData ? state.curData.seed : '');
+    const code = currentMapCode(state.curData);
     const total = types.length;
 
     // Pre-allocate pixel readback buffer (reused across all tiles and 8-bit types)

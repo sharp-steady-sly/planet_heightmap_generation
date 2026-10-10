@@ -7,6 +7,7 @@ import { ELEVATION_ENCODING, EXPORT_LAYER_DEFINITIONS, exportLayerHasData } from
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 import { TERRAIN_CLASSES } from './terrain-analysis.js';
 import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
+import { buildExportFilename, currentMapCode } from './export-filenames.js';
 
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -45,7 +46,7 @@ function downloadBlob(blob, filename) {
 }
 
 function exportCode() {
-    return location.hash.replace(/^#/, '').trim() || String(state.curData?.seed ?? 'world');
+    return currentMapCode(state.curData);
 }
 
 export async function exportWorldData(onProgress) {
@@ -233,7 +234,10 @@ export async function exportWorldData(onProgress) {
 
     const code = exportCode();
     onProgress?.(85, 'Preparing CSV...');
-    downloadBlob(new Blob(chunks, { type: 'text/csv;charset=utf-8' }), `orogen-world-data-${code}.csv`);
+    downloadBlob(
+        new Blob(chunks, { type: 'text/csv;charset=utf-8' }),
+        buildExportFilename('world-data', 'csv', { seed: code }),
+    );
 
     const metadata = {
         schemaVersion: 7,
@@ -287,7 +291,7 @@ export async function exportWorldData(onProgress) {
     onProgress?.(95, 'Preparing metadata...');
     downloadBlob(
         new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json;charset=utf-8' }),
-        `orogen-world-metadata-${code}.json`,
+        buildExportFilename('world-metadata', 'json', { seed: code }),
     );
     onProgress?.(100, 'World data exported');
 }

@@ -15,6 +15,7 @@ import { initExportUI } from './export-ui.js';
 import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
 import { setupDistanceRuler, syncDistanceRulerView, updateDistanceRulerOverlay } from './distance-ruler.js';
 import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
+import { buildExportFilename } from './export-filenames.js';
 
 // ─── File Upload ──────────────────────────────────────────────────
 
@@ -1081,7 +1082,7 @@ window.takePreview = function(width = 1200, height = 630) {
     renderer.render(scene, state.mapMode ? mapCamera : camera);
 
     const link = document.createElement('a');
-    link.download = 'preview.png';
+    link.download = buildExportFilename('preview', 'png', state.curData);
     link.href = renderer.domElement.toDataURL('image/png');
     link.click();
 
@@ -1091,7 +1092,7 @@ window.takePreview = function(width = 1200, height = 630) {
     camera.updateProjectionMatrix();
     for (const { el, prev } of hiddenEls) el.style.display = prev;
     renderer.render(scene, state.mapMode ? mapCamera : camera);
-    console.log('preview.png downloaded!');
+    console.log(`${link.download} downloaded!`);
 };
 
 // ─── Start ────────────────────────────────────────────────────────

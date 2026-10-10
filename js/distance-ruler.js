@@ -10,6 +10,7 @@ import {
     sampleGreatCircle,
     sphericalPolygonAreaKm2,
 } from './distance-utils.js';
+import { buildExportFilename } from './export-filenames.js';
 
 const STORAGE_PREFIX = 'wo-distance-ruler:';
 const LINE_COLOR = '#ffd34d';
@@ -464,9 +465,8 @@ function exportOverlay() {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
-        const code = location.hash.replace(/^#/, '').trim() || 'world';
         anchor.href = url;
-        anchor.download = `orogen-measurements-${code}.png`;
+        anchor.download = buildExportFilename('measurement-overlay', 'png', state.curData);
         anchor.click();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         output.width = 0;

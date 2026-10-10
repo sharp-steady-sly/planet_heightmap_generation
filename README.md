@@ -156,10 +156,11 @@ Click **Export Map** (below Visual Options) to open the export modal:
 - **Type** — choose any available core, elevation, mask, geology, metal-potential, atmosphere, ocean, climate, or plate-physics layer. Climate is computed on demand when the selected layer needs it.
 - **Width** slider — 1024 to 65536 pixels (height is always width/2 for equirectangular). Large exports use tiled rendering to handle GPU texture limits.
 - **Export Selected** — downloads the selected type as an equirectangular PNG with no grid overlay. Wind, pressure, and current maps retain their direction arrows.
-- **Worldbuilding Atlas** — downloads the principal terrain, tectonic, regional-geology, metal-potential, elevation, mask, seasonal weather, ocean-current, climate, hydrology, and erosion maps.
+- **Worldbuilding Atlas** — downloads the principal terrain, tectonic, regional-geology, metal-potential, elevation, mask, seasonal weather, ocean-current, climate, hydrology, and erosion maps. Its weather-hazard selection is intentionally concise: dominant hazard, annual cyclone exposure, both seasonal storm-severity maps, and annual maximum storm severity.
 - **All Map Types** — downloads every map backed by the current generated or imported world.
 - **Data CSV + JSON** — downloads one CSV row per mesh region plus a metadata file documenting units, approximations, coordinate conventions, and 16-bit elevation encodings.
 - **Measurement overlay** — the ruler panel exports pinned distance lines and polygonal areas as a transparent equirectangular PNG. Its selected width should match the atlas export width for pixel-perfect overlay alignment.
+- Export filenames use `<map-layer-name>_<map-code>.<extension>`, for example `storm-severity-annual_07xiox3ru8bz9050natw8s.png`. Imported maps without a planet code use `imported-world`.
 - **Bathymetry encoding** — ocean pixels 0–65534 map linearly from -10000 m to 0 m; 65535 is reserved for land/no-data. The full heightmap maps 0–65535 from -10000 m to +6000 m.
 - A progress overlay shows rendering and PNG encoding status during export
 
@@ -279,6 +280,7 @@ js/
   hydrology.js          Depression conditioning, drainage routing, seasonal flow accumulation, rivers, and lake candidates
   geology.js            Regional lithology, ages, intrusions, metamorphism, sediments, and metal favorability
   export-layers.js      Shared raster export catalog and availability metadata
+  export-filenames.js   Shared map-code filename generation for all downloads
   world-data-export.js  Per-region CSV and JSON metadata export
   scene.js              Three.js scene, cameras, controls, lights
   planet-mesh.js        Voronoi mesh, map projection, hover highlight

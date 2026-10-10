@@ -17,6 +17,7 @@ import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.j
 import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
 import { setupDistanceRuler, syncDistanceRulerView, updateDistanceRulerOverlay } from './distance-ruler.js';
 import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
+import { buildExportFilename } from './export-filenames.js';
 
 // Slider value displays + stale tracking
 const sliderIds = ['sN','sP','sCn','sJ','sNs','sCsv','sLc'];
@@ -1458,7 +1459,7 @@ window.addEventListener('resize', () => {
 })();
 
 // Screenshot helper — call window.takePreview() from the browser console
-// Hides UI, renders at 1200×630 from the current camera angle, downloads preview.png
+// Hides UI and renders a named 1200x630 preview from the current camera angle.
 window.takePreview = function(width = 1200, height = 630) {
     // Save current state
     const savedW = renderer.domElement.width;
@@ -1489,7 +1490,7 @@ window.takePreview = function(width = 1200, height = 630) {
 
     // Download
     const link = document.createElement('a');
-    link.download = 'preview.png';
+    link.download = buildExportFilename('preview', 'png', state.curData);
     link.href = renderer.domElement.toDataURL('image/png');
     link.click();
 
@@ -1500,7 +1501,7 @@ window.takePreview = function(width = 1200, height = 630) {
     camera.updateProjectionMatrix();
     for (const { el, prev } of hiddenEls) el.style.display = prev;
     renderer.render(scene, state.mapMode ? mapCamera : camera);
-    console.log('preview.png downloaded!');
+    console.log(`${link.download} downloaded!`);
 };
 
 // Go! Check URL hash for a planet code, otherwise random generation.

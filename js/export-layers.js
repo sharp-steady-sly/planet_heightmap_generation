@@ -192,11 +192,11 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         description: 'Strongest broad severe-weather environment across the two opposing hemispheric seasons.',
     }),
     layer('cycloneGenesisSummer', 'Tropical Cyclone Genesis (North-Summer / South-Winter)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Warm-water and low-shear tropical cyclone formation environment during northern summer and southern winter.',
     }),
     layer('cycloneGenesisWinter', 'Tropical Cyclone Genesis (North-Winter / South-Summer)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Warm-water and low-shear tropical cyclone formation environment during northern winter and southern summer.',
     }),
     layer('cycloneExposureAnnual', 'Cyclone Coastal Exposure (Annual)', 'Weather Hazards', {
@@ -204,35 +204,35 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         description: 'Annual maximum tropical cyclone exposure propagated from genesis waters along prevailing winds and inland decay.',
     }),
     layer('severeStormSummer', 'Severe Thunderstorms (North-Summer / South-Winter)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Warm, moist, convergent severe-thunderstorm environment during northern summer and southern winter.',
     }),
     layer('severeStormWinter', 'Severe Thunderstorms (North-Winter / South-Summer)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Warm, moist, convergent severe-thunderstorm environment during northern winter and southern summer.',
     }),
     layer('tornadoPotentialSummer', 'Tornado Environment (North-Summer / South-Winter)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Lowland severe-storm environments with favorable directional shear during northern summer and southern winter.',
     }),
     layer('tornadoPotentialWinter', 'Tornado Environment (North-Winter / South-Summer)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Lowland severe-storm environments with favorable directional shear during northern winter and southern summer.',
     }),
     layer('blizzardPotentialSummer', 'Blizzard Potential (North-Summer / South-Winter)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Cold, snowy, windy land environments during northern summer and southern winter.',
     }),
     layer('blizzardPotentialWinter', 'Blizzard Potential (North-Winter / South-Summer)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Cold, snowy, windy land environments during northern winter and southern summer.',
     }),
     layer('extratropicalStormSummer', 'Extratropical Storms (North-Summer / South-Winter)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Midlatitude frontal, windy, low-pressure storm-track environment during northern summer and southern winter.',
     }),
     layer('extratropicalStormWinter', 'Extratropical Storms (North-Winter / South-Summer)', 'Weather Hazards', {
-        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        requiresClimate: true, unit: 'relative potential 0-1',
         description: 'Midlatitude frontal, windy, low-pressure storm-track environment during northern winter and southern summer.',
     }),
     layer('stormSeveritySummer', 'Storm Severity (North-Summer / South-Winter)', 'Weather Hazards', {
