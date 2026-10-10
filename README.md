@@ -131,6 +131,7 @@ Climate simulation (wind, ocean currents, precipitation, temperature, Köppen cl
 - **Auto-Rotate** — toggle switch to spin the globe continuously
 - **Grid Lines** — toggle switch for latitude/longitude grid overlay on both globe and map views
 - **Grid Spacing** — choose the interval between grid lines: 30°, 15°, 10°, 5°, or 2.5°
+- **Measurement Tools** — activate Measure and choose Line to pin a two-point great-circle distance, or Polygonal Area to outline a region with three or more points. Area previews begin at the third point; Finish Area (or Enter) closes the polygon automatically and reports its spherical surface area. Measurements remain aligned when switching between globe, map, and Inspect layers; choose kilometres, miles, or both, then undo or clear pins as needed. Pins are saved locally per planet code. Export Transparent Overlay creates a matching 2:1 PNG at 2048, 4096, or 8192 pixels wide for use over atlas layers in Wonderdraft or an image editor.
 
 ### Inspect Dropdown
 
@@ -156,6 +157,7 @@ Click **Export Map** (below Visual Options) to open the export modal:
 - **Worldbuilding Atlas** — downloads the principal terrain, tectonic, regional-geology, metal-potential, elevation, mask, seasonal weather, ocean-current, climate, hydrology, and erosion maps.
 - **All Map Types** — downloads every map backed by the current generated or imported world.
 - **Data CSV + JSON** — downloads one CSV row per mesh region plus a metadata file documenting units, approximations, coordinate conventions, and 16-bit elevation encodings.
+- **Measurement overlay** — the ruler panel exports pinned distance lines and polygonal areas as a transparent equirectangular PNG. Its selected width should match the atlas export width for pixel-perfect overlay alignment.
 - **Bathymetry encoding** — ocean pixels 0–65534 map linearly from -10000 m to 0 m; 65535 is reserved for land/no-data. The full heightmap maps 0–65535 from -10000 m to +6000 m.
 - A progress overlay shows rendering and PNG encoding status during export
 

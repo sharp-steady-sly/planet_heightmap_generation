@@ -36,4 +36,7 @@ export const state = {
     _pendingBackup: null,
     _mapPendingBackup: null,
     importedHeightmap: false,
+    rulerMode: false,
+    rulerTool: 'line',
+    rulerUnits: 'both',
 };

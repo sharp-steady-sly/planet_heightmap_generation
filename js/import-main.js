@@ -13,6 +13,7 @@ import { KOPPEN_CLASSES } from './koppen.js';
 import { elevationToColor } from './color-map.js';
 import { initExportUI } from './export-ui.js';
 import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
+import { setupDistanceRuler, syncDistanceRulerView, updateDistanceRulerOverlay } from './distance-ruler.js';
 
 // ─── File Upload ──────────────────────────────────────────────────
 
@@ -724,11 +725,13 @@ document.getElementById('viewMode').addEventListener('change', (e) => {
         ctrl.enabled = true;
         mapCenterLonGroup.style.display = 'none';
     }
+    syncDistanceRulerView();
 });
 
 // ─── Export modal ─────────────────────────────────────────────────
 
 initExportUI({ showBuildOverlay, hideBuildOverlay, onProgress, computeClimateViaWorker });
+setupDistanceRuler();
 
 // ─── Sidebar toggle + bottom sheet ────────────────────────────────
 
@@ -871,6 +874,7 @@ function animate() {
         if (state.oceanCurrentArrowGroup) state.oceanCurrentArrowGroup.rotation.y = state.planetMesh.rotation.y;
         if (state.globeGridMesh) state.globeGridMesh.rotation.y = state.planetMesh.rotation.y;
     }
+    updateDistanceRulerOverlay();
     renderer.render(scene, state.mapMode ? mapCamera : camera);
 }
 
@@ -952,6 +956,10 @@ window.addEventListener('resize', () => {
     }
 
     function updateHoverInfo(e) {
+        if (state.rulerMode) {
+            hoverEl.style.display = 'none';
+            return;
+        }
         if (!state.curData) return;
         const now = performance.now();
         if (now - lastHoverTime < HOVER_INTERVAL) return;

@@ -57,7 +57,9 @@ function getHitInfoGlobe(event) {
     // Hit point → normalise to unit direction
     const hx = ox + t * dx, hy = oy + t * dy, hz = oz + t * dz;
     const len = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1;
-    return findNearestRegion(hx / len, hy / len, hz / len);
+    const direction = [hx / len, hy / len, hz / len];
+    const hit = findNearestRegion(...direction);
+    return hit ? { ...hit, direction } : null;
 }
 
 /** Map view: unproject mouse → map plane → inverse equirect → nearest region. */
@@ -86,14 +88,12 @@ function getHitInfoMap(event) {
     else if (lon < -PI) lon += 2 * PI;
 
     const cosLat = Math.cos(lat);
-    return findNearestRegion(
-        cosLat * Math.sin(lon),
-        Math.sin(lat),
-        cosLat * Math.cos(lon)
-    );
+    const direction = [cosLat * Math.sin(lon), Math.sin(lat), cosLat * Math.cos(lon)];
+    const hit = findNearestRegion(...direction);
+    return hit ? { ...hit, direction } : null;
 }
 
-function getHitInfo(event) {
+export function getHitInfo(event) {
     if (!state.curData) return null;
     return state.mapMode ? getHitInfoMap(event) : getHitInfoGlobe(event);
 }
@@ -189,6 +189,7 @@ export function setupEditMode() {
 
     canvas.addEventListener('pointerdown', (e) => {
         if (!state.curData) return;
+        if (state.rulerMode) return;
         const isEditTap = (e.button === 0 && e.ctrlKey) ||
                           (e.button === 0 && state.isTouchDevice && state.editMode);
         if (isEditTap) {
@@ -203,6 +204,7 @@ export function setupEditMode() {
     });
 
     canvas.addEventListener('pointerup', (e) => {
+        if (state.rulerMode) { orbiting = false; downInfo = null; return; }
         orbiting = false;
         if (!downInfo || !state.curData || e.button !== 0) { downInfo = null; return; }
 
@@ -243,6 +245,11 @@ export function setupEditMode() {
     });
 
     canvas.addEventListener('pointermove', (e) => {
+        if (state.rulerMode) {
+            orbiting = false;
+            document.getElementById('hoverInfo').style.display = 'none';
+            return;
+        }
         if (!state.curData) {
             if (state.hoveredPlate >= 0 || state.hoveredRegion >= 0) {
                 state.hoveredPlate = -1;

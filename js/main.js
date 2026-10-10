@@ -15,6 +15,7 @@ import { elevationToColor } from './color-map.js';
 import { initExportUI } from './export-ui.js';
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
+import { setupDistanceRuler, syncDistanceRulerView, updateDistanceRulerOverlay } from './distance-ruler.js';
 
 // Slider value displays + stale tracking
 const sliderIds = ['sN','sP','sCn','sJ','sNs','sCsv','sLc'];
@@ -920,6 +921,7 @@ document.getElementById('viewMode').addEventListener('change', (e) => {
         ctrl.enabled = true;
         mapCenterLonGroup.style.display = 'none';
     }
+    syncDistanceRulerView();
 });
 
 // Debug layer dropdown
@@ -936,6 +938,7 @@ initExportUI({ showBuildOverlay, hideBuildOverlay, onProgress, computeClimateVia
 
 // Edit mode setup (pointer events, sub-mode buttons)
 setupEditMode();
+setupDistanceRuler();
 
 // Rebuild FAB — batch-apply pending plate toggles
 (function initRebuildFab() {
@@ -1210,6 +1213,7 @@ function animate() {
         if (state.oceanCurrentArrowGroup) state.oceanCurrentArrowGroup.rotation.y = state.planetMesh.rotation.y;
         if (state.globeGridMesh) state.globeGridMesh.rotation.y = state.planetMesh.rotation.y;
     }
+    updateDistanceRulerOverlay();
     renderer.render(scene, state.mapMode ? mapCamera : camera);
 }
 
