@@ -12,6 +12,7 @@ import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
 import { computeHydrology } from './hydrology.js';
 import { computeRegionalGeology } from './geology.js';
+import { computeWeatherHazards } from './weather-hazards.js';
 
 // Main thread still needs Delaunator for SphereMesh reconstruction
 setDelaunator(Delaunator);
@@ -99,6 +100,27 @@ function clearHydrologyFields(target) {
     for (const key of HYDROLOGY_FIELD_KEYS) target[key] = null;
     if (target.debugLayers) {
         for (const key of HYDROLOGY_DEBUG_KEYS) target.debugLayers[key] = null;
+    }
+}
+
+const WEATHER_FIELD_KEYS = ['r_weather_hazard', 'r_weather_hazard_season'];
+const WEATHER_DEBUG_KEYS = [
+    'weatherHazard', 'cycloneGenesisSummer', 'cycloneGenesisWinter',
+    'cycloneExposureAnnual', 'severeStormSummer', 'severeStormWinter',
+    'tornadoPotentialSummer', 'tornadoPotentialWinter',
+    'blizzardPotentialSummer', 'blizzardPotentialWinter',
+    'extratropicalStormSummer', 'extratropicalStormWinter',
+    'stormSeveritySummer', 'stormSeverityWinter', 'stormSeverityAnnual',
+];
+
+function assignWeatherFields(target, source) {
+    for (const key of WEATHER_FIELD_KEYS) target[key] = source[key] ?? null;
+}
+
+function clearWeatherFields(target) {
+    for (const key of WEATHER_FIELD_KEYS) target[key] = null;
+    if (target.debugLayers) {
+        for (const key of WEATHER_DEBUG_KEYS) target.debugLayers[key] = null;
     }
 }
 
@@ -290,6 +312,7 @@ if (worker) {
                     terrainMetrics: msg.terrainMetrics || null
                 };
                 assignHydrologyFields(state.curData, msg);
+                assignWeatherFields(state.curData, msg);
                 assignGeologyFields(state.curData, msg);
                 assignTerrainAnalysisFields(state.curData, msg);
                 console.log(
@@ -487,6 +510,7 @@ if (worker) {
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
                 assignHydrologyFields(d, msg);
+                assignWeatherFields(d, msg);
                 assignGeologyFields(d, msg);
                 assignTerrainAnalysisFields(d, msg);
                 if (msg.terrainDebugLayers) {
@@ -544,6 +568,7 @@ if (worker) {
                         d.debugLayers.precipWinter = null;
                     }
                     clearHydrologyFields(d);
+                    clearWeatherFields(d);
                 }
 
                 const tBuildStart = performance.now();
@@ -620,6 +645,7 @@ if (worker) {
                     d.r_temperature_winter = msg.r_temperature_winter;
                 }
                 assignHydrologyFields(d, msg);
+                assignWeatherFields(d, msg);
                 assignGeologyFields(d, msg);
                 assignTerrainAnalysisFields(d, msg);
                 d.debugLayers = msg.debugLayers;
@@ -668,6 +694,7 @@ if (worker) {
                         d.debugLayers.precipWinter = null;
                     }
                     clearHydrologyFields(d);
+                    clearWeatherFields(d);
                 }
 
                 const tColorsStart = performance.now();
@@ -728,6 +755,7 @@ if (worker) {
                     d.r_temperature_summer = msg.r_temperature_summer;
                     d.r_temperature_winter = msg.r_temperature_winter;
                     assignHydrologyFields(d, msg);
+                    assignWeatherFields(d, msg);
                     assignGeologyFields(d, msg);
                     // Merge climate debug layers
                     if (msg.climateDebugLayers && d.debugLayers) {
@@ -741,7 +769,11 @@ if (worker) {
                 const ct = msg._climateTiming || {};
                 console.log(`%c[World Orogen] Climate computed on demand`, 'color:#f8a;font-weight:bold');
                 console.log(
-                    `  %cSummary:%c Worker: ${f(ct.workerTotal || 0)} ms (wind=${f(ct.wind || 0)}, ocean=${f(ct.ocean || 0)}, precip=${f(ct.precipitation || 0)}, temp=${f(ct.temperature || 0)}, koppen=${f(ct.koppen || 0)})`,
+                    `[World Orogen] Weather hazards: ${d?.debugLayers?.weatherHazard?.length || 0} classified regions, ` +
+                    `${d?.debugLayers?.stormSeverityAnnual ? 'layers ready' : 'layers missing'}`,
+                );
+                console.log(
+                    `  %cSummary:%c Worker: ${f(ct.workerTotal || 0)} ms (wind=${f(ct.wind || 0)}, ocean=${f(ct.ocean || 0)}, precip=${f(ct.precipitation || 0)}, temp=${f(ct.temperature || 0)}, weather=${f(ct.weatherHazards || 0)}, koppen=${f(ct.koppen || 0)})`,
                     'color:#ff6;font-weight:bold', ''
                 );
 
@@ -905,6 +937,10 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 debugLayers.tempWinter = tempResult.r_temperature_winter;
                 debugLayers.tempContinentality = tempResult.r_tempContinentality;
                 debugLayers.koppen = classifyKoppen(ctx.mesh, r_elevation, tempResult, precipResult);
+                ctx.weatherResult = computeWeatherHazards(
+                    ctx.mesh, ctx.r_xyz, r_elevation, windResult, oceanResult, precipResult, tempResult,
+                );
+                if (ctx.weatherResult?.debugLayers) Object.assign(debugLayers, ctx.weatherResult.debugLayers);
                 ctx.hydrologyResult = computeHydrology(
                     ctx.mesh, r_elevation,
                     precipResult.r_precip_summer, precipResult.r_precip_winter,
@@ -960,6 +996,7 @@ function generateFallback(overrideSeed, toggledIndices, onProgress, skipClimate)
                 r_temperature_winter: ctx.tempResult ? ctx.tempResult.r_temperature_winter : null
             };
             assignHydrologyFields(state.curData, ctx.hydrologyResult || {});
+            assignWeatherFields(state.curData, ctx.weatherResult || {});
             assignGeologyFields(state.curData, ctx.geologyResult || {});
             state.climateComputed = !skipClimate;
             buildMesh();

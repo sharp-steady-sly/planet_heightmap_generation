@@ -3,11 +3,17 @@
 // availability, filenames, and the two batch presets.
 
 function layer(id, label, category, options = {}) {
+    let defaultFilename = id.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+    if (id.endsWith('Summer')) {
+        defaultFilename = defaultFilename.replace(/-summer$/, '-north-summer-south-winter');
+    } else if (id.endsWith('Winter')) {
+        defaultFilename = defaultFilename.replace(/-winter$/, '-north-winter-south-summer');
+    }
     return Object.freeze({
         id,
         label,
         category,
-        filename: options.filename || id.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase(),
+        filename: options.filename || defaultFilename,
         requiresClimate: !!options.requiresClimate,
         importSupported: options.importSupported !== false,
         worldbuilding: !!options.worldbuilding,
@@ -138,40 +144,40 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         description: 'Gold, tin, platinum, and titanium concentration potential routed downstream from eroding source provinces.',
     }),
 
-    layer('pressureSummer', 'Pressure (Summer)', 'Atmosphere', {
+    layer('pressureSummer', 'Pressure (North-Summer / South-Winter)', 'Atmosphere', {
         requiresClimate: true, worldbuilding: true, unit: 'hPa deviation from 1013',
     }),
-    layer('pressureWinter', 'Pressure (Winter)', 'Atmosphere', {
+    layer('pressureWinter', 'Pressure (North-Winter / South-Summer)', 'Atmosphere', {
         requiresClimate: true, worldbuilding: true, unit: 'hPa deviation from 1013',
     }),
-    layer('windSpeedSummer', 'Wind Speed + Direction (Summer)', 'Atmosphere', {
+    layer('windSpeedSummer', 'Wind Speed + Direction (North-Summer / South-Winter)', 'Atmosphere', {
         requiresClimate: true, worldbuilding: true, unit: 'relative 0-1',
     }),
-    layer('windSpeedWinter', 'Wind Speed + Direction (Winter)', 'Atmosphere', {
+    layer('windSpeedWinter', 'Wind Speed + Direction (North-Winter / South-Summer)', 'Atmosphere', {
         requiresClimate: true, worldbuilding: true, unit: 'relative 0-1',
     }),
-    layer('oceanCurrentSummer', 'Ocean Currents (Summer)', 'Ocean', {
+    layer('oceanCurrentSummer', 'Ocean Currents (North-Summer / South-Winter)', 'Ocean', {
         requiresClimate: true, worldbuilding: true, unit: 'relative',
     }),
-    layer('oceanCurrentWinter', 'Ocean Currents (Winter)', 'Ocean', {
+    layer('oceanCurrentWinter', 'Ocean Currents (North-Winter / South-Summer)', 'Ocean', {
         requiresClimate: true, worldbuilding: true, unit: 'relative',
     }),
-    layer('precipSummer', 'Precipitation (Summer)', 'Climate', {
+    layer('precipSummer', 'Precipitation (North-Summer / South-Winter)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'relative 0-1',
     }),
-    layer('precipWinter', 'Precipitation (Winter)', 'Climate', {
+    layer('precipWinter', 'Precipitation (North-Winter / South-Summer)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'relative 0-1',
     }),
-    layer('rainShadowSummer', 'Rain Shadow (Summer)', 'Climate', {
+    layer('rainShadowSummer', 'Rain Shadow (North-Summer / South-Winter)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'signed influence',
     }),
-    layer('rainShadowWinter', 'Rain Shadow (Winter)', 'Climate', {
+    layer('rainShadowWinter', 'Rain Shadow (North-Winter / South-Summer)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'signed influence',
     }),
-    layer('tempSummer', 'Temperature (Summer)', 'Climate', {
+    layer('tempSummer', 'Temperature (North-Summer / South-Winter)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'degrees C',
     }),
-    layer('tempWinter', 'Temperature (Winter)', 'Climate', {
+    layer('tempWinter', 'Temperature (North-Winter / South-Summer)', 'Climate', {
         requiresClimate: true, worldbuilding: true, unit: 'degrees C',
     }),
     layer('continentality', 'Continentality', 'Climate', {
@@ -181,17 +187,78 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         requiresClimate: true, worldbuilding: true, unit: 'climate zone 0-1',
     }),
 
+    layer('weatherHazard', 'Dominant Weather Hazard', 'Weather Hazards', {
+        filename: 'dominant-weather-hazard', requiresClimate: true, worldbuilding: true, unit: 'class',
+        description: 'Strongest broad severe-weather environment across the two opposing hemispheric seasons.',
+    }),
+    layer('cycloneGenesisSummer', 'Tropical Cyclone Genesis (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Warm-water and low-shear tropical cyclone formation environment during northern summer and southern winter.',
+    }),
+    layer('cycloneGenesisWinter', 'Tropical Cyclone Genesis (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Warm-water and low-shear tropical cyclone formation environment during northern winter and southern summer.',
+    }),
+    layer('cycloneExposureAnnual', 'Cyclone Coastal Exposure (Annual)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Annual maximum tropical cyclone exposure propagated from genesis waters along prevailing winds and inland decay.',
+    }),
+    layer('severeStormSummer', 'Severe Thunderstorms (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Warm, moist, convergent severe-thunderstorm environment during northern summer and southern winter.',
+    }),
+    layer('severeStormWinter', 'Severe Thunderstorms (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Warm, moist, convergent severe-thunderstorm environment during northern winter and southern summer.',
+    }),
+    layer('tornadoPotentialSummer', 'Tornado Environment (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Lowland severe-storm environments with favorable directional shear during northern summer and southern winter.',
+    }),
+    layer('tornadoPotentialWinter', 'Tornado Environment (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Lowland severe-storm environments with favorable directional shear during northern winter and southern summer.',
+    }),
+    layer('blizzardPotentialSummer', 'Blizzard Potential (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Cold, snowy, windy land environments during northern summer and southern winter.',
+    }),
+    layer('blizzardPotentialWinter', 'Blizzard Potential (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Cold, snowy, windy land environments during northern winter and southern summer.',
+    }),
+    layer('extratropicalStormSummer', 'Extratropical Storms (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Midlatitude frontal, windy, low-pressure storm-track environment during northern summer and southern winter.',
+    }),
+    layer('extratropicalStormWinter', 'Extratropical Storms (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Midlatitude frontal, windy, low-pressure storm-track environment during northern winter and southern summer.',
+    }),
+    layer('stormSeveritySummer', 'Storm Severity (North-Summer / South-Winter)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Maximum of the modeled severe-weather environments during northern summer and southern winter.',
+    }),
+    layer('stormSeverityWinter', 'Storm Severity (North-Winter / South-Summer)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Maximum of the modeled severe-weather environments during northern winter and southern summer.',
+    }),
+    layer('stormSeverityAnnual', 'Storm Severity (Annual Maximum)', 'Weather Hazards', {
+        requiresClimate: true, worldbuilding: true, unit: 'relative potential 0-1',
+        description: 'Maximum severe-weather favorability across both modeled seasons.',
+    }),
+
     layer('flowAccumulationAnnual', 'Flow Accumulation (Annual)', 'Hydrology', {
         requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
         description: 'Annual precipitation-weighted runoff accumulated through the drainage network.',
     }),
-    layer('flowAccumulationSummer', 'Flow Accumulation (Summer)', 'Hydrology', {
+    layer('flowAccumulationSummer', 'Flow Accumulation (North-Summer / South-Winter)', 'Hydrology', {
         requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
-        description: 'Summer precipitation accumulated through the drainage network.',
+        description: 'North-summer / south-winter precipitation accumulated through the drainage network.',
     }),
-    layer('flowAccumulationWinter', 'Flow Accumulation (Winter)', 'Hydrology', {
+    layer('flowAccumulationWinter', 'Flow Accumulation (North-Winter / South-Summer)', 'Hydrology', {
         requiresClimate: true, worldbuilding: true, unit: 'log-normalized relative runoff',
-        description: 'Winter precipitation accumulated through the drainage network.',
+        description: 'North-winter / south-summer precipitation accumulated through the drainage network.',
     }),
     layer('riversAnnual', 'River Network (Annual)', 'Hydrology', {
         filename: 'river-network-annual', requiresClimate: true, worldbuilding: true,
@@ -199,7 +266,7 @@ export const EXPORT_LAYER_DEFINITIONS = Object.freeze([
         description: 'Major drainage paths selected from annual accumulated runoff.',
     }),
     layer('riverSeasonality', 'River Seasonality', 'Hydrology', {
-        requiresClimate: true, worldbuilding: true, unit: 'winter -1 to summer +1',
+        requiresClimate: true, worldbuilding: true, unit: 'north-winter/south-summer -1 to north-summer/south-winter +1',
         description: 'Seasonal dominance along major drainage paths.',
     }),
     layer('lakeDepth', 'Lake Candidates', 'Hydrology', {

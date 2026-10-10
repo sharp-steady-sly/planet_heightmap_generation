@@ -16,6 +16,7 @@ import { initExportUI } from './export-ui.js';
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 import { ELEVATION_BANDS, SLOPE_LEGEND, RELIEF_LEGEND } from './terrain-analysis.js';
 import { setupDistanceRuler, syncDistanceRulerView, updateDistanceRulerOverlay } from './distance-ruler.js';
+import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
 
 // Slider value displays + stale tracking
 const sliderIds = ['sN','sP','sCn','sJ','sNs','sCsv','sLc'];
@@ -198,6 +199,13 @@ function shouldSkipClimate() {
 }
 
 // Climate layer keys — layers that require climate data
+const WEATHER_HAZARD_LAYERS = new Set([
+    'weatherHazard', 'cycloneGenesisSummer', 'cycloneGenesisWinter', 'cycloneExposureAnnual',
+    'severeStormSummer', 'severeStormWinter', 'tornadoPotentialSummer', 'tornadoPotentialWinter',
+    'blizzardPotentialSummer', 'blizzardPotentialWinter',
+    'extratropicalStormSummer', 'extratropicalStormWinter',
+    'stormSeveritySummer', 'stormSeverityWinter', 'stormSeverityAnnual',
+]);
 const CLIMATE_LAYERS = new Set([
     'pressureSummer', 'pressureWinter',
     'windSpeedSummer', 'windSpeedWinter',
@@ -207,7 +215,8 @@ const CLIMATE_LAYERS = new Set([
     'tempSummer', 'tempWinter',
     'koppen', 'biome', 'continentality',
     'flowAccumulationAnnual', 'flowAccumulationSummer', 'flowAccumulationWinter',
-    'riversAnnual', 'riverSeasonality', 'lakeDepth', 'metalPlacer'
+    'riversAnnual', 'riverSeasonality', 'lakeDepth', 'metalPlacer',
+    ...WEATHER_HAZARD_LAYERS,
 ]);
 
 // Map tabs → tab-layer mapping
@@ -389,6 +398,35 @@ function highPlateauSummary() {
         `${stat.meanSlopeMPerKm.toFixed(1)} m/km average regional gradient.</div>`;
 }
 
+function weatherPotentialLegend(layer) {
+    let colors = ['#c9c9c3', '#e8a329', '#8c153b'];
+    let labels = ['Background', 'Favorable', 'Highest'];
+    let note = 'Relative environmental favorability, not an event forecast or yearly probability.';
+    if (layer.startsWith('cyclone')) {
+        colors = ['#192a36', '#1da6b8', '#d8fff8'];
+        labels = ['Unfavorable', 'Favorable', 'Highest'];
+        note = layer === 'cycloneExposureAnnual'
+            ? 'Genesis conditions propagated along prevailing winds with rapid inland decay.'
+            : 'Warm-water, tropical-latitude, low-shear formation environment; not an individual storm track.';
+    } else if (layer.startsWith('severeStorm')) {
+        colors = ['#c9c9c3', '#e7a526', '#7d1714'];
+        note = 'Warmth, moisture, convergence, fronts, and wind combine into broad severe-thunderstorm potential.';
+    } else if (layer.startsWith('tornadoPotential')) {
+        colors = ['#c9c9c3', '#e24b25', '#65070a'];
+        note = 'A broad tornadic-storm environment proxy using severe-storm potential, directional shear, convergence, fronts, and low relief.';
+    } else if (layer.startsWith('blizzardPotential')) {
+        colors = ['#4b535d', '#8cc9ed', '#f7fdff'];
+        labels = ['Unfavorable', 'Favorable', 'Highest'];
+        note = 'Cold, snowy, windy land environment; it does not predict snowfall totals or visibility.';
+    } else if (layer.startsWith('extratropicalStorm')) {
+        colors = ['#c9c9c3', '#7778ce', '#252458'];
+        note = 'Midlatitude frontal, windy, convergent, low-pressure storm-track environment.';
+    }
+    return `<div class="legend-gradient" style="background:linear-gradient(to right,${colors[0]} 0%,${colors[1]} 55%,${colors[2]} 100%)"></div>` +
+        `<div class="legend-labels"><span>${labels[0]}</span><span>${labels[1]}</span><span>${labels[2]}</span></div>` +
+        `<div class="legend-association">${note}<br>N-Summer / S-Winter and N-Winter / S-Summer identify the two opposing hemispheric seasons.</div>`;
+}
+
 function wireCategoricalLegendHover(field) {
     vizLegend.querySelectorAll('.legend-categorical-item[data-class-id]').forEach(item => {
         item.addEventListener('mouseenter', () => {
@@ -518,6 +556,12 @@ function updateLegend(layer) {
         const biomeGrad = biomeColors.map((c, i) => `${c} ${biomePcts[i]}%`).join(', ');
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,${biomeGrad})"></div>` +
             `<div class="legend-labels"><span>${biomeStops[0].label}</span><span>${biomeStops[3].label}</span><span>${biomeStops[6].label}</span></div>`;
+    } else if (layer === 'weatherHazard') {
+        vizLegend.innerHTML = staticLegend(WEATHER_HAZARD_CLASSES, 'r_weather_hazard') +
+            '<div class="legend-association">Dominant relative hazard across both modeled seasons. The CSV records whether its stronger signal occurs during N-Summer / S-Winter, N-Winter / S-Summer, or is balanced.</div>';
+        wireCategoricalLegendHover('r_weather_hazard');
+    } else if (WEATHER_HAZARD_LAYERS.has(layer)) {
+        vizLegend.innerHTML = weatherPotentialLegend(layer);
     } else if (layer === 'surfaceLithology') {
         vizLegend.innerHTML = categoricalLegend(LITHOLOGY_CLASSES, { compact: true });
         wireCategoricalLegendHover('r_surface_lithology');
@@ -558,7 +602,7 @@ function updateLegend(layer) {
             `<div class="legend-labels"><span>Land</span><span>River</span><span>Major River</span></div>`;
     } else if (layer === 'riverSeasonality') {
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#0d59d1 0%,#4c4f59 50%,#eb4d0f 100%)"></div>` +
-            `<div class="legend-labels"><span>Winter-Dominant</span><span>Balanced</span><span>Summer-Dominant</span></div>`;
+            `<div class="legend-labels"><span>N-Winter / S-Summer</span><span>Balanced</span><span>N-Summer / S-Winter</span></div>`;
     } else if (layer === 'lakeDepth') {
         vizLegend.innerHTML = `<div class="legend-gradient" style="background:linear-gradient(to right,#d6d1b8 0%,#2094e0 50%,#0d3dfa 100%)"></div>` +
             `<div class="legend-labels"><span>Land</span><span>Shallow Candidate</span><span>Deep Candidate</span></div>`;

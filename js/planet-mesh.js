@@ -12,6 +12,7 @@ import {
     elevationBandColor, regionalSlopeColor, localReliefColor,
     topographicColor, majorPeaksColor,
 } from './terrain-analysis.js';
+import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
 
 // Clipping planes for map wrap — keep everything within x ∈ [-2, 2]
 renderer.localClippingEnabled = true;
@@ -299,6 +300,31 @@ const METAL_POTENTIAL_LAYERS = new Set([
     'metalCraton', 'metalSedimentary', 'metalPlacer',
 ]);
 
+const WEATHER_HAZARD_LAYERS = new Set([
+    'weatherHazard', 'cycloneGenesisSummer', 'cycloneGenesisWinter', 'cycloneExposureAnnual',
+    'severeStormSummer', 'severeStormWinter', 'tornadoPotentialSummer', 'tornadoPotentialWinter',
+    'blizzardPotentialSummer', 'blizzardPotentialWinter',
+    'extratropicalStormSummer', 'extratropicalStormWinter',
+    'stormSeveritySummer', 'stormSeverityWinter', 'stormSeverityAnnual',
+]);
+
+const WEATHER_ENDPOINTS = Object.freeze({
+    cycloneGenesisSummer: [0.04, 0.82, 0.88],
+    cycloneGenesisWinter: [0.04, 0.82, 0.88],
+    cycloneExposureAnnual: [0.05, 0.90, 0.94],
+    severeStormSummer: [0.96, 0.55, 0.05],
+    severeStormWinter: [0.96, 0.55, 0.05],
+    tornadoPotentialSummer: [0.86, 0.08, 0.08],
+    tornadoPotentialWinter: [0.86, 0.08, 0.08],
+    blizzardPotentialSummer: [0.72, 0.90, 1.00],
+    blizzardPotentialWinter: [0.72, 0.90, 1.00],
+    extratropicalStormSummer: [0.34, 0.31, 0.78],
+    extratropicalStormWinter: [0.34, 0.31, 0.78],
+    stormSeveritySummer: [0.84, 0.12, 0.40],
+    stormSeverityWinter: [0.84, 0.12, 0.40],
+    stormSeverityAnnual: [0.84, 0.12, 0.40],
+});
+
 const METAL_ENDPOINTS = Object.freeze({
     metalArc: [0.91, 0.16, 0.08],
     metalOrogenic: [0.98, 0.72, 0.06],
@@ -312,6 +338,16 @@ const METAL_ENDPOINTS = Object.freeze({
 function blendColor(a, b, t) {
     const s = Math.max(0, Math.min(1, t));
     return [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, a[2] + (b[2] - a[2]) * s];
+}
+
+function weatherHazardColor(layer, value, elevation) {
+    if (layer === 'weatherHazard') {
+        return WEATHER_HAZARD_CLASSES[value]?.color || WEATHER_HAZARD_CLASSES[0].color;
+    }
+    const background = elevation > 0 ? [0.58, 0.59, 0.56] : [0.06, 0.13, 0.18];
+    const endpoint = WEATHER_ENDPOINTS[layer] || [0.84, 0.12, 0.40];
+    const t = Math.pow(Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0)), 0.68);
+    return blendColor(background, endpoint, t);
 }
 
 function ageColor(value, maxAge) {
@@ -497,10 +533,12 @@ export function buildMapMesh() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    const isWeatherHazard = WEATHER_HAZARD_LAYERS.has(debugLayer);
+    const weatherHazardArr = isWeatherHazard ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isWeatherHazard && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -569,6 +607,8 @@ export function buildMapMesh() {
                 cr = 0.5; cg = 0; cb = 0.5;
             } else if (isHydrology && hydrologyArr) {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+            } else if (isWeatherHazard && weatherHazardArr) {
+                [cr, cg, cb] = weatherHazardColor(debugLayer, weatherHazardArr[br], r_elevation[br]);
             } else if (isGeology && geologyArr) {
                 [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
             } else if (isTerrainAnalysis) {
@@ -944,10 +984,12 @@ export function buildMesh() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    const isWeatherHazard = WEATHER_HAZARD_LAYERS.has(debugLayer);
+    const weatherHazardArr = isWeatherHazard ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isWeatherHazard && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1046,6 +1088,8 @@ export function buildMesh() {
                 cr = 0.5; cg = 0; cb = 0.5;
             } else if (isHydrology && hydrologyArr) {
                 [cr, cg, cb] = hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+            } else if (isWeatherHazard && weatherHazardArr) {
+                [cr, cg, cb] = weatherHazardColor(debugLayer, weatherHazardArr[br], r_elevation[br]);
             } else if (isGeology && geologyArr) {
                 [cr, cg, cb] = geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
             } else if (isTerrainAnalysis) {
@@ -1196,10 +1240,12 @@ export function updateMeshColors() {
     const tempContArr = isTempCont ? (debugLayers && debugLayers.tempContinentality) : null;
     const isHydrology = HYDROLOGY_LAYERS.has(debugLayer);
     const hydrologyArr = isHydrology ? (debugLayers && debugLayers[debugLayer]) : null;
+    const isWeatherHazard = WEATHER_HAZARD_LAYERS.has(debugLayer);
+    const weatherHazardArr = isWeatherHazard ? (debugLayers && debugLayers[debugLayer]) : null;
     const isGeology = REGIONAL_GEOLOGY_LAYERS.has(debugLayer) || METAL_POTENTIAL_LAYERS.has(debugLayer);
     const geologyArr = isGeology ? (debugLayers && debugLayers[debugLayer]) : null;
     const isTerrainAnalysis = TERRAIN_ANALYSIS_LAYERS.has(debugLayer);
-    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
+    if (!isHeightmap && !isLandHeightmap && !isOceanCurrent && !isPrecip && !isRainShadow && !isTemp && !isKoppen && !isBiome && !isCont && !isTempCont && !isHydrology && !isWeatherHazard && !isGeology && !isTerrainAnalysis && debugLayer && debugLayers && debugLayers[debugLayer]) {
         dbgArr = debugLayers[debugLayer];
         for (let r = 0; r < mesh.numRegions; r++) {
             if (dbgArr[r] < dbgMin) dbgMin = dbgArr[r];
@@ -1222,6 +1268,7 @@ export function updateMeshColors() {
         if (isOceanCurrent && oceanWarmth && oceanSpeed) return oceanCurrentColor(oceanWarmth[br], oceanSpeed[br], r_elevation[br] <= 0);
         if (isOceanCurrent) return [0.5, 0, 0.5];
         if (isHydrology && hydrologyArr) return hydrologyColor(debugLayer, hydrologyArr[br], r_elevation[br], debugLayers.riversAnnual?.[br]);
+        if (isWeatherHazard && weatherHazardArr) return weatherHazardColor(debugLayer, weatherHazardArr[br], r_elevation[br]);
         if (isGeology && geologyArr) return geologyColor(debugLayer, geologyArr[br], r_elevation[br], br, state.curData);
         if (isTerrainAnalysis) return terrainAnalysisColor(debugLayer, br, r_elevation[br], state.curData);
         if (isLandHeightmap) return landHeightmapColor(r_elevation[br]);
@@ -2207,6 +2254,7 @@ function createExportLayerContext(type) {
         ...TERRAIN_ANALYSIS_LAYERS,
         ...REGIONAL_GEOLOGY_LAYERS,
         ...METAL_POTENTIAL_LAYERS,
+        ...WEATHER_HAZARD_LAYERS,
     ]);
 
     const dbgArr = !specialTypes.has(type) ? debugLayers?.[type] : null;
@@ -2222,6 +2270,9 @@ function createExportLayerContext(type) {
 
     const colorForRegion = (r) => {
         const elevation = r_elevation[r];
+        if (WEATHER_HAZARD_LAYERS.has(type)) {
+            return weatherHazardColor(type, debugLayers[type][r], elevation);
+        }
         if (REGIONAL_GEOLOGY_LAYERS.has(type) || METAL_POTENTIAL_LAYERS.has(type)) {
             return geologyColor(type, debugLayers[type][r], elevation, r, data);
         }

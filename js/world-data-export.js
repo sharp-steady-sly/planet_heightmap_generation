@@ -6,6 +6,7 @@ import { KOPPEN_CLASSES } from './koppen.js';
 import { ELEVATION_ENCODING, EXPORT_LAYER_DEFINITIONS, exportLayerHasData } from './export-layers.js';
 import { LITHOLOGY_CLASSES, INTRUSIVE_TYPES, METAL_PROVINCES } from './geology.js';
 import { TERRAIN_CLASSES } from './terrain-analysis.js';
+import { WEATHER_HAZARD_CLASSES } from './weather-hazards.js';
 
 const RAD_TO_DEG = 180 / Math.PI;
 
@@ -26,6 +27,12 @@ function bearingDegrees(east, north) {
     if (!Number.isFinite(east) || !Number.isFinite(north)) return NaN;
     if (Math.abs(east) + Math.abs(north) < 1e-12) return NaN;
     return (Math.atan2(east, north) * RAD_TO_DEG + 360) % 360;
+}
+
+function hazardSeasonName(value) {
+    if (value > 0) return 'North-Summer / South-Winter';
+    if (value < 0) return 'North-Winter / South-Summer';
+    return 'Balanced';
 }
 
 function downloadBlob(blob, filename) {
@@ -61,19 +68,34 @@ export async function exportWorldData(onProgress) {
         'metal_arc_hydrothermal_potential', 'metal_orogenic_gold_potential',
         'metal_vms_base_metals_potential', 'metal_mafic_magmatic_potential',
         'metal_craton_related_potential', 'metal_sedimentary_potential', 'metal_placer_potential',
-        'temperature_summer_c', 'temperature_winter_c',
-        'precipitation_summer_relative', 'precipitation_winter_relative',
-        'precipitation_summer_approx_mm', 'precipitation_winter_approx_mm',
-        'pressure_summer_hpa', 'pressure_winter_hpa',
-        'wind_east_summer', 'wind_north_summer', 'wind_speed_summer_relative', 'wind_bearing_summer_deg',
-        'wind_east_winter', 'wind_north_winter', 'wind_speed_winter_relative', 'wind_bearing_winter_deg',
-        'ocean_current_east_summer', 'ocean_current_north_summer',
-        'ocean_current_speed_summer_relative', 'ocean_current_warmth_summer', 'ocean_current_bearing_summer_deg',
-        'ocean_current_east_winter', 'ocean_current_north_winter',
-        'ocean_current_speed_winter_relative', 'ocean_current_warmth_winter', 'ocean_current_bearing_winter_deg',
-        'rain_shadow_summer', 'rain_shadow_winter', 'continentality', 'temperature_continentality',
+        'temperature_north_summer_south_winter_c', 'temperature_north_winter_south_summer_c',
+        'precipitation_north_summer_south_winter_relative', 'precipitation_north_winter_south_summer_relative',
+        'precipitation_north_summer_south_winter_approx_mm', 'precipitation_north_winter_south_summer_approx_mm',
+        'pressure_north_summer_south_winter_hpa', 'pressure_north_winter_south_summer_hpa',
+        'wind_east_west_component_north_summer_south_winter', 'wind_north_south_component_north_summer_south_winter',
+        'wind_speed_north_summer_south_winter_relative', 'wind_bearing_north_summer_south_winter_deg',
+        'wind_east_west_component_north_winter_south_summer', 'wind_north_south_component_north_winter_south_summer',
+        'wind_speed_north_winter_south_summer_relative', 'wind_bearing_north_winter_south_summer_deg',
+        'ocean_current_east_west_component_north_summer_south_winter', 'ocean_current_north_south_component_north_summer_south_winter',
+        'ocean_current_speed_north_summer_south_winter_relative', 'ocean_current_warmth_north_summer_south_winter',
+        'ocean_current_bearing_north_summer_south_winter_deg',
+        'ocean_current_east_west_component_north_winter_south_summer', 'ocean_current_north_south_component_north_winter_south_summer',
+        'ocean_current_speed_north_winter_south_summer_relative', 'ocean_current_warmth_north_winter_south_summer',
+        'ocean_current_bearing_north_winter_south_summer_deg',
+        'rain_shadow_north_summer_south_winter', 'rain_shadow_north_winter_south_summer',
+        'continentality', 'temperature_continentality',
+        'dominant_weather_hazard_id', 'dominant_weather_hazard_code', 'dominant_weather_hazard_name',
+        'dominant_weather_hazard_season',
+        'cyclone_genesis_north_summer_south_winter_relative', 'cyclone_genesis_north_winter_south_summer_relative',
+        'cyclone_coastal_exposure_annual_relative',
+        'severe_thunderstorm_north_summer_south_winter_relative', 'severe_thunderstorm_north_winter_south_summer_relative',
+        'tornado_environment_north_summer_south_winter_relative', 'tornado_environment_north_winter_south_summer_relative',
+        'blizzard_potential_north_summer_south_winter_relative', 'blizzard_potential_north_winter_south_summer_relative',
+        'extratropical_storm_north_summer_south_winter_relative', 'extratropical_storm_north_winter_south_summer_relative',
+        'storm_severity_north_summer_south_winter_relative', 'storm_severity_north_winter_south_summer_relative',
+        'storm_severity_annual_relative',
         'downstream_region_id', 'catchment_cells',
-        'flow_accumulation_summer_relative', 'flow_accumulation_winter_relative',
+        'flow_accumulation_north_summer_south_winter_relative', 'flow_accumulation_north_winter_south_summer_relative',
         'flow_accumulation_annual_relative', 'river_strength', 'river_seasonality',
         'lake_candidate_id', 'lake_candidate_depth_m',
         'erosion_delta_raw', 'erosion_delta_approx_m',
@@ -97,6 +119,8 @@ export async function exportWorldData(onProgress) {
         const intrusiveType = Number.isInteger(intrusiveTypeId) ? INTRUSIVE_TYPES[intrusiveTypeId] : null;
         const metalProvinceId = data.r_metal_province?.[r];
         const metalProvince = Number.isInteger(metalProvinceId) ? METAL_PROVINCES[metalProvinceId] : null;
+        const weatherHazardId = data.r_weather_hazard?.[r];
+        const weatherHazard = Number.isInteger(weatherHazardId) ? WEATHER_HAZARD_CLASSES[weatherHazardId] : null;
         const tempSummer = debugLayers.tempSummer?.[r] ?? data.r_temperature_summer?.[r];
         const tempWinter = debugLayers.tempWinter?.[r] ?? data.r_temperature_winter?.[r];
         const precipSummer = debugLayers.precipSummer?.[r] ?? data.r_precip_summer?.[r];
@@ -173,6 +197,17 @@ export async function exportWorldData(onProgress) {
             finite(bearingDegrees(oceanEW, oceanNW), 2),
             finite(debugLayers.rainShadowSummer?.[r]), finite(debugLayers.rainShadowWinter?.[r]),
             finite(debugLayers.continentality?.[r]), finite(debugLayers.tempContinentality?.[r]),
+            Number.isFinite(weatherHazardId) ? weatherHazardId : '',
+            weatherHazard?.code || '', weatherHazard?.name || '',
+            weatherHazard ? hazardSeasonName(data.r_weather_hazard_season?.[r]) : '',
+            finite(debugLayers.cycloneGenesisSummer?.[r]), finite(debugLayers.cycloneGenesisWinter?.[r]),
+            finite(debugLayers.cycloneExposureAnnual?.[r]),
+            finite(debugLayers.severeStormSummer?.[r]), finite(debugLayers.severeStormWinter?.[r]),
+            finite(debugLayers.tornadoPotentialSummer?.[r]), finite(debugLayers.tornadoPotentialWinter?.[r]),
+            finite(debugLayers.blizzardPotentialSummer?.[r]), finite(debugLayers.blizzardPotentialWinter?.[r]),
+            finite(debugLayers.extratropicalStormSummer?.[r]), finite(debugLayers.extratropicalStormWinter?.[r]),
+            finite(debugLayers.stormSeveritySummer?.[r]), finite(debugLayers.stormSeverityWinter?.[r]),
+            finite(debugLayers.stormSeverityAnnual?.[r]),
             Number.isInteger(data.r_flow_receiver?.[r]) && data.r_flow_receiver[r] >= 0
                 ? data.r_flow_receiver[r] : '',
             finite(data.r_catchment_cells?.[r], 0),
@@ -201,7 +236,7 @@ export async function exportWorldData(onProgress) {
     downloadBlob(new Blob(chunks, { type: 'text/csv;charset=utf-8' }), `orogen-world-data-${code}.csv`);
 
     const metadata = {
-        schemaVersion: 5,
+        schemaVersion: 7,
         generator: 'World Orogen',
         exportedAt: new Date().toISOString(),
         planetCode: code,
@@ -224,11 +259,12 @@ export async function exportWorldData(onProgress) {
             windAndCurrents: 'Vector components and speed are relative simulation values, not metres per second.',
             pressure: 'Pressure layers store deviation from 1013 hPa; CSV values add that baseline.',
             temperature: 'Normalized simulation temperature converted linearly from 0..1 to -45..45 C.',
-            seasons: 'Summer and winter are northern-hemisphere seasons; local warm/cold seasons reverse in the southern hemisphere.',
+            seasons: 'Seasonal fields explicitly pair North-Summer / South-Winter with North-Winter / South-Summer. Internal generator keys retain summer/winter names for compatibility.',
             hydrology: 'Flow accumulation is relative precipitation-weighted runoff on a depression-conditioned drainage graph. Lake candidates are terrain depressions at least 25 m below their spill surface; neither product includes calibrated evaporation, infiltration, dams, or channel hydraulics.',
             geology: 'Lithology, ages, intrusions, metamorphism, and sediment thickness are deterministic regional inferences from generated tectonic settings. They are not a stratigraphic or geodynamic forward model.',
             metals: 'Metal values are relative favorability for broad deposit-forming environments, not deposits, reserves, grades, or guarantees. Placer favorability routes eroding source potential through the generated drainage network.',
             terrainAnalysis: 'Elevation is in physical metres. Regional slope and local relief describe the irregular world mesh at continental-to-regional scale, not survey-grade local terrain. Peak prominence is a neighborhood-range proxy, not formal topographic prominence.',
+            weatherHazards: 'Values are relative environmental favorability inferred from broad seasonal climate and terrain fields. They are not event probabilities, return periods, calibrated storm counts, or individual tracks.',
             geometry: 'Rows represent irregular spherical mesh regions, not raster pixels.',
         },
         classificationCatalogs: {
@@ -238,6 +274,7 @@ export async function exportWorldData(onProgress) {
                 code, name, color, metals, otherResources: otherResources || [],
             })),
             terrainClasses: TERRAIN_CLASSES.map(({ code, name }) => ({ code, name })),
+            weatherHazards: WEATHER_HAZARD_CLASSES.map(({ code, name, color }) => ({ code, name, color })),
         },
         majorPeaks: data.majorPeaks || [],
         terrainBandStats: data.terrainBandStats || [],

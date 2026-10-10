@@ -15,6 +15,7 @@ import { computePrecipitation } from './precipitation.js';
 import { computeTemperature } from './temperature.js';
 import { classifyKoppen } from './koppen.js';
 import { computeHydrology } from './hydrology.js';
+import { computeWeatherHazards } from './weather-hazards.js';
 import { computeRegionalGeology } from './geology.js';
 import { computeTerrainMetrics } from './terrain-metrics.js';
 import { computeTerrainAnalysis } from './terrain-analysis.js';
@@ -217,6 +218,18 @@ function addHydrologyDebugLayers(debugLayers, hydrologyResult) {
     }
 }
 
+function buildWeatherFields(weatherResult) {
+    if (!weatherResult) return {};
+    return {
+        r_weather_hazard: weatherResult.r_weather_hazard,
+        r_weather_hazard_season: weatherResult.r_weather_hazard_season,
+    };
+}
+
+function addWeatherDebugLayers(debugLayers, weatherResult) {
+    if (weatherResult?.debugLayers) Object.assign(debugLayers, weatherResult.debugLayers);
+}
+
 function buildGeologyFields(geologyResult) {
     if (!geologyResult) return {};
     const { debugLayers, ...fields } = geologyResult;
@@ -396,7 +409,7 @@ function handleGenerate(data) {
         const tectonicDebugLayers = { ...debugLayers };
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let hydrologyResult = null;
+        let hydrologyResult = null, weatherResult = null;
 
         if (!skipClimate) {
             progress(70, 'Simulating wind patterns\u2026');
@@ -438,6 +451,14 @@ function handleGenerate(data) {
             t0 = performance.now();
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
             timing.push({ stage: 'Köppen classification', ms: performance.now() - t0 });
+
+            progress(88, 'Mapping seasonal weather hazards\u2026');
+            t0 = performance.now();
+            weatherResult = computeWeatherHazards(
+                mesh, r_xyz, r_elevation, windResult, oceanResult, precipResult, tempResult,
+            );
+            addWeatherDebugLayers(debugLayers, weatherResult);
+            timing.push({ stage: 'Weather hazards', ms: performance.now() - t0 });
 
             progress(89, 'Routing rivers and lakes\u2026');
             t0 = performance.now();
@@ -532,6 +553,7 @@ function handleGenerate(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildWeatherFields(weatherResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
             ...buildTerrainAnalysisFields(terrainAnalysis),
@@ -587,8 +609,8 @@ function handleReapply(data) {
         W.r_elevation_final = new Float32Array(r_elevation);
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let hydrologyResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0, tGeology = 0;
+        let hydrologyResult = null, weatherResult = null;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tWeather = 0, tHydrology = 0, tGeology = 0;
 
         if (!skipClimate) {
             progress(60, 'Simulating wind patterns\u2026');
@@ -610,6 +632,13 @@ function handleReapply(data) {
             t0 = performance.now();
             tempResult = computeTemperature(W.mesh, W.r_xyz, r_elevation, windResult, oceanResult, precipResult, temperatureOffset);
             tTemp = performance.now() - t0;
+
+            progress(87, 'Mapping seasonal weather hazards\u2026');
+            t0 = performance.now();
+            weatherResult = computeWeatherHazards(
+                W.mesh, W.r_xyz, r_elevation, windResult, oceanResult, precipResult, tempResult,
+            );
+            tWeather = performance.now() - t0;
 
             progress(88, 'Routing rivers and lakes\u2026');
             t0 = performance.now();
@@ -656,6 +685,7 @@ function handleReapply(data) {
             t_elevation,
             erosionDelta: dl_erosionDelta,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildWeatherFields(weatherResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
             ...buildTerrainAnalysisFields(terrainAnalysis),
@@ -673,6 +703,7 @@ function handleReapply(data) {
                 tempSummer: tempResult.r_temperature_summer,
                 tempWinter: tempResult.r_temperature_winter,
                 koppen: classifyKoppen(W.mesh, r_elevation, tempResult, precipResult),
+                ...(weatherResult?.debugLayers || {}),
                 ...hydrologyResult.debugLayers,
             } : null,
             _reapplyTiming: {
@@ -682,6 +713,7 @@ function handleReapply(data) {
                 ocean: tOcean,
                 precipitation: tPrecip,
                 temperature: tTemp,
+                weatherHazards: tWeather,
                 hydrology: tHydrology,
                 geology: tGeology,
                 triangleElevations: tTriElev,
@@ -749,8 +781,8 @@ function handleEditRecompute(data) {
         W.r_elevation_final = new Float32Array(r_elevation);
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let hydrologyResult = null;
-        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tHydrology = 0, tGeology = 0;
+        let hydrologyResult = null, weatherResult = null;
+        let tWind = 0, tOcean = 0, tPrecip = 0, tTemp = 0, tWeather = 0, tHydrology = 0, tGeology = 0;
 
         if (!skipClimate) {
             progress(65, 'Simulating wind patterns\u2026');
@@ -786,6 +818,14 @@ function handleEditRecompute(data) {
             debugLayers.tempContinentality = tempResult.r_tempContinentality;
 
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
+
+            progress(88, 'Mapping seasonal weather hazards\u2026');
+            t0 = performance.now();
+            weatherResult = computeWeatherHazards(
+                mesh, r_xyz, r_elevation, windResult, oceanResult, precipResult, tempResult,
+            );
+            addWeatherDebugLayers(debugLayers, weatherResult);
+            tWeather = performance.now() - t0;
 
             progress(89, 'Routing rivers and lakes\u2026');
             t0 = performance.now();
@@ -840,6 +880,7 @@ function handleEditRecompute(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildWeatherFields(weatherResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
             ...buildTerrainAnalysisFields(terrainAnalysis),
@@ -851,6 +892,7 @@ function handleEditRecompute(data) {
                 ocean: tOcean,
                 precipitation: tPrecip,
                 temperature: tTemp,
+                weatherHazards: tWeather,
                 hydrology: tHydrology,
                 geology: tGeology,
                 triangleElevations: tTriElev,
@@ -909,6 +951,13 @@ function handleComputeClimate(data) {
         const tempResult = computeTemperature(mesh, r_xyz, r_elevation_final, windResult, oceanResult, precipResult, temperatureOffset);
         const tTemp = performance.now() - t0;
 
+        progress(82, 'Mapping seasonal weather hazards\u2026');
+        t0 = performance.now();
+        const weatherResult = computeWeatherHazards(
+            mesh, r_xyz, r_elevation_final, windResult, oceanResult, precipResult, tempResult,
+        );
+        const tWeather = performance.now() - t0;
+
         progress(88, 'Classifying climates\u2026');
         t0 = performance.now();
         const koppen = classifyKoppen(mesh, r_elevation_final, tempResult, precipResult);
@@ -945,6 +994,7 @@ function handleComputeClimate(data) {
             tempSummer: tempResult.r_temperature_summer,
             tempWinter: tempResult.r_temperature_winter,
             koppen,
+            ...(weatherResult?.debugLayers || {}),
             ...hydrologyResult.debugLayers,
             ...(geologyResult?.debugLayers || {}),
         };
@@ -972,6 +1022,7 @@ function handleComputeClimate(data) {
             r_precip_winter: precipResult.r_precip_winter,
             r_temperature_summer: tempResult.r_temperature_summer,
             r_temperature_winter: tempResult.r_temperature_winter,
+            ...buildWeatherFields(weatherResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildGeologyFields(geologyResult),
             climateDebugLayers,
@@ -980,6 +1031,7 @@ function handleComputeClimate(data) {
                 ocean: tOcean,
                 precipitation: tPrecip,
                 temperature: tTemp,
+                weatherHazards: tWeather,
                 koppen: tKoppen,
                 hydrology: tHydrology,
                 geology: tGeology,
@@ -1157,7 +1209,7 @@ function handleImportHeightmap(data) {
         timing.push({ stage: 'Terrain analysis (elevation + relief + peaks)', ms: performance.now() - t0 });
 
         let windResult = null, oceanResult = null, precipResult = null, tempResult = null;
-        let hydrologyResult = null;
+        let hydrologyResult = null, weatherResult = null;
 
         if (!skipClimate) {
             const noise = new SimplexNoise(seed);
@@ -1197,6 +1249,14 @@ function handleImportHeightmap(data) {
             t0 = performance.now();
             debugLayers.koppen = classifyKoppen(mesh, r_elevation, tempResult, precipResult);
             timing.push({ stage: 'Köppen classification', ms: performance.now() - t0 });
+
+            progress(90, 'Mapping seasonal weather hazards\u2026');
+            t0 = performance.now();
+            weatherResult = computeWeatherHazards(
+                mesh, r_xyz, r_elevation, windResult, oceanResult, precipResult, tempResult,
+            );
+            addWeatherDebugLayers(debugLayers, weatherResult);
+            timing.push({ stage: 'Weather hazards', ms: performance.now() - t0 });
 
             progress(91, 'Routing rivers and lakes\u2026');
             t0 = performance.now();
@@ -1251,6 +1311,7 @@ function handleImportHeightmap(data) {
             ocean_r: Array.from(ocean_r),
             r_stress,
             ...buildClimateFields(windResult, oceanResult, precipResult, tempResult),
+            ...buildWeatherFields(weatherResult),
             ...buildHydrologyFields(hydrologyResult),
             ...buildTerrainAnalysisFields(terrainAnalysis),
             skipClimate: !!skipClimate,
